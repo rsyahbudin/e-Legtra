@@ -7,6 +7,7 @@ use App\Models\Contract;
 use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class NotificationService
@@ -70,7 +71,7 @@ class NotificationService
             // Remove duplicates
             $cc = array_unique(array_filter($cc));
 
-            \Log::info('Sending ticket created email', [
+            Log::info('Sending ticket created email', [
                 'ticket_no' => $ticket->TCKT_NO,
                 'to' => $to,
                 'cc' => $cc,
@@ -86,12 +87,12 @@ class NotificationService
                     Mail::to($to)->send($mailable);
                 }
 
-                \Log::info('Ticket created email sent successfully', ['ticket_no' => $ticket->TCKT_NO]);
+                Log::info('Ticket created email sent successfully', ['ticket_no' => $ticket->TCKT_NO]);
             } else {
-                \Log::warning('No valid legal email found', ['ticket_no' => $ticket->TCKT_NO]);
+                Log::warning('No valid legal email found', ['ticket_no' => $ticket->TCKT_NO]);
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to send ticket created email', [
+            Log::error('Failed to send ticket created email', [
                 'ticket_no' => $ticket->TCKT_NO,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -102,7 +103,8 @@ class NotificationService
         // Create notification for legal users
         $this->createNotificationForLegalTeam(
             "New ticket #{$ticket->TCKT_NO} requires review",
-            $ticket
+            $ticket,
+            [$ticket->TCKT_CREATED_BY, auth()->user()?->LGL_ROW_ID]
         );
     }
 
@@ -179,7 +181,7 @@ class NotificationService
                 Mail::to($to)->send($mailable);
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to send ticket status change email', [
+            Log::error('Failed to send ticket status change email', [
                 'ticket_no' => $ticket->TCKT_NO,
                 'error' => $e->getMessage(),
             ]);
@@ -194,7 +196,8 @@ class NotificationService
 
         $this->createNotificationForLegalTeam(
             "Ticket #{$ticket->TCKT_NO} status changed: {$this->getStatusLabel($newStatus)}",
-            $ticket
+            $ticket,
+            [$ticket->TCKT_CREATED_BY, auth()->user()?->LGL_ROW_ID]
         );
     }
 
@@ -273,7 +276,7 @@ class NotificationService
                     Mail::to($to)->send($mailable);
                 }
             } catch (\Exception $e) {
-                \Log::error('Failed to send contract status change email', [
+                Log::error('Failed to send contract status change email', [
                     'contract_no' => $contract->CONTR_NO,
                     'error' => $e->getMessage(),
                 ]);
@@ -291,7 +294,8 @@ class NotificationService
 
         $this->createNotificationForLegalTeam(
             "Contract #{$contract->CONTR_NO} status changed: {$newStatus}",
-            $contract
+            $contract,
+            [$contract->CONTR_CREATED_BY, auth()->user()?->LGL_ROW_ID]
         );
     }
 
@@ -312,11 +316,15 @@ class NotificationService
     /**
      * Create notification for all legal team users.
      */
-    private function createNotificationForLegalTeam(string $message, $notifiable): void
+    private function createNotificationForLegalTeam(string $message, $notifiable, array $excludeUserIds = []): void
     {
         $legalUsers = User::getAdminAndLegalUsers();
 
         foreach ($legalUsers as $user) {
+            if (in_array($user->LGL_ROW_ID, $excludeUserIds)) {
+                continue;
+            }
+
             $this->createNotificationForUser($user, $message, $notifiable);
         }
     }

@@ -68,7 +68,7 @@ class ContractService
             'CONTR_TAT_LGL_COMPLNCE' => $ticket->TCKT_TAT_LGL_COMPLNCE,
             'CONTR_DIV_ID' => $ticket->DIV_ID,
             'CONTR_DEPT_ID' => $ticket->DEPT_ID,
-            'CONTR_PIC' => $ticket->TCKT_CREATED_BY,
+            'CONTR_PIC_ID' => $ticket->TCKT_CREATED_BY,
             'CONTR_START_DT' => $ticket->documentType?->code === 'surat_kuasa' ? $ticket->TCKT_GRANT_START_DT : $ticket->TCKT_AGREE_START_DT,
             'CONTR_END_DT' => $endDate,
             'CONTR_IS_AUTO_RENEW' => $ticket->TCKT_IS_AUTO_RENEW,
@@ -78,7 +78,7 @@ class ContractService
             'CONTR_STS_ID' => ContractStatus::getIdByCode($status),
             'CONTR_DOC_REQUIRED_PATH' => $ticket->TCKT_DOC_REQUIRED_PATH,
             'CONTR_DOC_APPROVAL_PATH' => $ticket->TCKT_DOC_APPROVAL_PATH,
-            'CONTR_CREATED_BY' => auth()->id() ?? $ticket->TCKT_REVIEWED_BY ?? $ticket->TCKT_CREATED_BY,
+            'CONTR_CREATED_BY' => auth()->user()?->LGL_ROW_ID ?? $ticket->TCKT_REVIEWED_BY ?? $ticket->TCKT_CREATED_BY,
         ]);
     }
 
@@ -98,7 +98,7 @@ class ContractService
             $contract->ticket->update(['TCKT_STS_ID' => TicketStatus::getIdByCode('closed')]);
 
             $contract->ticket->activityLogs()->create([
-                'LOG_CAUSER_ID' => auth()->id(),
+                'LOG_CAUSER_ID' => auth()->user()?->LGL_ROW_ID,
                 'LOG_CAUSER_TYPE' => User::class,
                 'LOG_EVENT' => 'status_change',
                 'LOG_DESC' => 'Ticket automatically closed due to contract termination',
@@ -111,7 +111,7 @@ class ContractService
         }
 
         $contract->activityLogs()->create([
-            'LOG_CAUSER_ID' => auth()->id(),
+            'LOG_CAUSER_ID' => auth()->user()?->LGL_ROW_ID,
             'LOG_CAUSER_TYPE' => User::class,
             'LOG_EVENT' => 'contract_terminated',
             'LOG_NAME' => "Contract terminated: {$reason}",

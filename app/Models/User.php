@@ -134,7 +134,7 @@ class User extends Authenticatable
      */
     public function assignedContracts(): HasMany
     {
-        return $this->hasMany(Contract::class, 'CONTR_PIC');
+        return $this->hasMany(Contract::class, 'CONTR_PIC_ID');
     }
 
     /**

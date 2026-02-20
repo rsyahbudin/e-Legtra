@@ -111,7 +111,7 @@ class ActivityLog extends Model
             'CONTR_NO' => 'Contract Number',
             'CONTR_DIV_ID' => 'Division',
             'CONTR_DEPT_ID' => 'Department',
-            'CONTR_PIC' => 'PIC',
+            'CONTR_PIC_ID' => 'PIC',
             'CONTR_START_DT' => 'Start Date',
             'CONTR_END_DT' => 'End Date',
             'CONTR_IS_AUTO_RENEW' => 'Auto Renewal',

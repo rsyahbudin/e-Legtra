@@ -31,7 +31,7 @@ class Contract extends Model
         'CONTR_TAT_LGL_COMPLNCE',
         'CONTR_DIV_ID',
         'CONTR_DEPT_ID',
-        'CONTR_PIC',
+        'CONTR_PIC_ID',
         'CONTR_START_DT',
         'CONTR_END_DT',
         'CONTR_IS_AUTO_RENEW',
@@ -104,7 +104,7 @@ class Contract extends Model
      */
     public function pic(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'CONTR_PIC');
+        return $this->belongsTo(User::class, 'CONTR_PIC_ID');
     }
 
     /**
@@ -244,7 +244,7 @@ class Contract extends Model
      */
     public function scopeForPic(Builder $query, int $userId): Builder
     {
-        return $query->where('CONTR_PIC', $userId);
+        return $query->where('CONTR_PIC_ID', $userId);
     }
 
     /**
@@ -260,7 +260,7 @@ class Contract extends Model
      */
     public function getPicNameAttribute(): string
     {
-        if ($this->CONTR_PIC && $this->pic) {
+        if ($this->CONTR_PIC_ID && $this->pic) {
             return $this->pic->USER_FULLNAME ?? $this->pic->name;
         }
 
@@ -272,7 +272,7 @@ class Contract extends Model
      */
     public function getPicEmailAttribute(): ?string
     {
-        if ($this->CONTR_PIC && $this->pic) {
+        if ($this->CONTR_PIC_ID && $this->pic) {
             return $this->pic->USER_EMAIL ?? $this->pic->email;
         }
 
