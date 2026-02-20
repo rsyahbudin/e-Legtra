@@ -25,12 +25,14 @@ class Department extends Model
         'REF_DEPT_ID',
         'email',
         'cc_emails',
+        'IS_ACTIVE',
     ];
 
     protected function casts(): array
     {
         return [
             'cc_emails' => 'array',
+            'IS_ACTIVE' => 'boolean',
         ];
     }
 
@@ -111,5 +113,13 @@ class Department extends Model
             ->first();
 
         return $legalDept?->email;
+    }
+
+    /**
+     * Scope to filter only active departments.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('IS_ACTIVE', true);
     }
 }

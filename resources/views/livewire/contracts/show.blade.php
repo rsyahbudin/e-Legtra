@@ -448,22 +448,22 @@ new #[Layout('components.layouts.app')] class extends Component
                 </p>
             </div>
 
-            @if($ticket->TCKT_HAS_FIN_IMPACT && $ticket->payment_type)
+            @if($ticket->TCKT_HAS_FIN_IMPACT && $ticket->TCKT_PAYMENT_TYPE)
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Payment Type</p>
                 <p class="font-medium text-neutral-900 dark:text-white">
-                    @if($ticket->payment_type === 'pay')
+                    @if($ticket->TCKT_PAYMENT_TYPE === 'pay')
                         <flux:badge color="orange">Pay</flux:badge>
-                    @elseif($ticket->payment_type === 'receive_payment')
+                    @elseif($ticket->TCKT_PAYMENT_TYPE === 'receive_payment')
                         <flux:badge color="blue">Receive</flux:badge>
                     @endif
                 </p>
             </div>
             
-            @if($ticket->payment_type === 'pay' && $ticket->recurring_description)
+            @if($ticket->TCKT_PAYMENT_TYPE === 'pay' && $ticket->TCKT_RECURRING_DESC)
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Recurring Description</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->recurring_description }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_RECURRING_DESC }}</p>
             </div>
             @endif
             @endif

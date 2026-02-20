@@ -46,7 +46,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->ref_div_name = $division->REF_DIV_NAME;
         $this->ref_div_id = $division->REF_DIV_ID;
         $this->ref_div_desc = $division->REF_DIV_DESC ?? '';
-        $this->is_active = $division->IS_ACTIVE;
+        $this->is_active = (bool) $division->IS_ACTIVE;
         $this->showModal = true;
     }
 

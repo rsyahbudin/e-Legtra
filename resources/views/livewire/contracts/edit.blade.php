@@ -21,9 +21,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public int $has_financial_impact = 0;
 
-    public string $payment_type = '';
+    public string $TCKT_PAYMENT_TYPE = '';
 
-    public string $recurring_description = '';
+    public string $TCKT_RECURRING_DESC = '';
 
     public string $proposed_document_title = '';
 
@@ -82,8 +82,8 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->division_id = $this->ticket->DIV_ID;
         $this->department_id = $this->ticket->DEPT_ID;
         $this->has_financial_impact = $this->ticket->TCKT_HAS_FIN_IMPACT;
-        $this->payment_type = $this->ticket->payment_type ?? '';
-        $this->recurring_description = $this->ticket->recurring_description ?? '';
+        $this->TCKT_PAYMENT_TYPE = $this->ticket->TCKT_PAYMENT_TYPE ?? '';
+        $this->TCKT_RECURRING_DESC = $this->ticket->TCKT_RECURRING_DESC ?? '';
         $this->proposed_document_title = $this->ticket->TCKT_PROP_DOC_TITLE;
         $this->document_type = $this->ticket->documentType?->code ?? '';
         $this->tat_legal_compliance = $this->ticket->TCKT_TAT_LGL_COMPLNCE;
@@ -319,23 +319,23 @@ new #[Layout('components.layouts.app')] class extends Component
                 @if($has_financial_impact)
                 <flux:field class="sm:col-span-2">
                     <flux:label>Payment Type *</flux:label>
-                    <flux:radio.group wire:model.live="payment_type" variant="segmented" required>
+                    <flux:radio.group wire:model.live="TCKT_PAYMENT_TYPE" variant="segmented" required>
                         <flux:radio value="pay" label="Pay" />
                         <flux:radio value="receive_payment" label="Receive Payment" />
                     </flux:radio.group>
-                    <flux:error name="payment_type" />
+                    <flux:error name="TCKT_PAYMENT_TYPE" />
                 </flux:field>
                 @endif
 
-                <!-- Recurring Description (conditional on payment_type = 'pay') -->
-                @if($has_financial_impact && $payment_type === 'pay')
+                <!-- Recurring Description (conditional on TCKT_PAYMENT_TYPE = 'pay') -->
+                @if($has_financial_impact && $TCKT_PAYMENT_TYPE === 'pay')
                 <flux:field class="sm:col-span-2">
                     <flux:label>Recurring Description (Optional)</flux:label>
                     <flux:input 
-                        wire:model="recurring_description" 
+                        wire:model="TCKT_RECURRING_DESC" 
                         placeholder="Example: Monthly, Every 3 months, etc"
                     />
-                    <flux:error name="recurring_description" />
+                    <flux:error name="TCKT_RECURRING_DESC" />
                 </flux:field>
                 @endif
 

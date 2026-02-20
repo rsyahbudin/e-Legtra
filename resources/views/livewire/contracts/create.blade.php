@@ -22,9 +22,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public int $has_financial_impact = 0;
 
-    public string $payment_type = '';
+    public string $TCKT_PAYMENT_TYPE = '';
 
-    public string $recurring_description = '';
+    public string $TCKT_RECURRING_DESC = '';
 
     public string $proposed_document_title = '';
 
@@ -110,8 +110,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 'DIV_ID' => ['required', 'exists:LGL_DIVISION,LGL_ROW_ID'],
                 'DEPT_ID' => ['required', 'exists:LGL_DEPARTMENT,LGL_ROW_ID'],
                 'has_financial_impact' => ['required', 'boolean'],
-                'payment_type' => ['nullable', 'required_if:has_financial_impact,true', 'string', 'max:50'],
-                'recurring_description' => ['nullable', 'string', 'max:200'],
+                'TCKT_PAYMENT_TYPE' => ['nullable', 'required_if:has_financial_impact,true', 'string', 'max:50'],
+                'TCKT_RECURRING_DESC' => ['nullable', 'string', 'max:200'],
                 'proposed_document_title' => ['required', 'string', 'max:255'],
                 'draft_document' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
                 'document_type' => ['required', Rule::in(['perjanjian', 'nda', 'surat_kuasa', 'pendapat_hukum', 'surat_pernyataan', 'surat_lainnya'])],
@@ -156,8 +156,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 'DIV_ID' => $this->DIV_ID,
                 'DEPT_ID' => $this->DEPT_ID,
                 'TCKT_HAS_FIN_IMPACT' => $validated['has_financial_impact'],
-                'payment_type' => $this->payment_type ?: null,
-                'recurring_description' => $this->recurring_description ?: null,
+                'TCKT_PAYMENT_TYPE' => $this->TCKT_PAYMENT_TYPE ?: null,
+                'TCKT_RECURRING_DESC' => $this->TCKT_RECURRING_DESC ?: null,
                 'TCKT_PROP_DOC_TITLE' => $validated['proposed_document_title'],
                 'TCKT_DOC_TYPE_ID' => \App\Models\DocumentType::getIdByCode($validated['document_type']),
                 'TCKT_COUNTERPART_NAME' => $this->counterpart_name ?: null,
@@ -280,23 +280,23 @@ new #[Layout('components.layouts.app')] class extends Component
                 @if($has_financial_impact)
                 <flux:field class="sm:col-span-2">
                     <flux:label>Payment Type *</flux:label>
-                    <flux:radio.group wire:model.live="payment_type" variant="segmented" required>
+                    <flux:radio.group wire:model.live="TCKT_PAYMENT_TYPE" variant="segmented" required>
                         <flux:radio value="pay" label="Pay" />
                         <flux:radio value="receive_payment" label="Receive Payment" />
                     </flux:radio.group>
-                    <flux:error name="payment_type" />
+                    <flux:error name="TCKT_PAYMENT_TYPE" />
                 </flux:field>
                 @endif
 
-                <!-- Recurring Description (conditional on payment_type = 'pay') -->
-                @if($has_financial_impact && $payment_type === 'pay')
+                <!-- Recurring Description (conditional on TCKT_PAYMENT_TYPE = 'pay') -->
+                @if($has_financial_impact && $TCKT_PAYMENT_TYPE === 'pay')
                 <flux:field class="sm:col-span-2">
                     <flux:label>Recurring Description (Optional)</flux:label>
                     <flux:input 
-                        wire:model="recurring_description" 
+                        wire:model="TCKT_RECURRING_DESC" 
                         placeholder="Example: Monthly, Every 3 months, etc"
                     />
-                    <flux:error name="recurring_description" />
+                    <flux:error name="TCKT_RECURRING_DESC" />
                 </flux:field>
                 @endif
 

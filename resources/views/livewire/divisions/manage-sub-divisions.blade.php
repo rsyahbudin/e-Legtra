@@ -15,6 +15,7 @@ new class extends Component {
     public $cc_emails = '';
     public $editingId = null;
     public $showModal = false;
+    public bool $is_active = true;
 
     #[On('manage-sub-divisions')]
     public function open($divisionId)
@@ -50,6 +51,7 @@ new class extends Component {
                 'REF_DEPT_ID' => $this->ref_dept_id,
                 'email' => $this->email,
                 'cc_emails' => $this->cc_emails,
+                'IS_ACTIVE' => $this->is_active,
             ]);
         } else {
             $this->division->departments()->create([
@@ -57,6 +59,7 @@ new class extends Component {
                 'REF_DEPT_ID' => $this->ref_dept_id,
                 'email' => $this->email,
                 'cc_emails' => $this->cc_emails,
+                'IS_ACTIVE' => $this->is_active,
             ]);
         }
 
@@ -72,6 +75,7 @@ new class extends Component {
         $this->ref_dept_id = $dept->REF_DEPT_ID;
         $this->email = $dept->email ?? '';
         $this->cc_emails = $dept->cc_emails;
+        $this->is_active = (bool) $dept->IS_ACTIVE;
     }
 
     public function delete($id)
@@ -82,7 +86,8 @@ new class extends Component {
     
     public function resetForm()
     {
-        $this->reset(['ref_dept_name', 'ref_dept_id', 'email', 'cc_emails', 'editingId']);
+        $this->reset(['ref_dept_name', 'ref_dept_id', 'email', 'cc_emails', 'editingId', 'is_active']);
+        $this->is_active = true;
     }
 
     public function close()
@@ -126,10 +131,12 @@ new class extends Component {
 
                 <flux:field>
                     <flux:label>CC Emails (for reminders)</flux:label>
-                    <flux:textarea wire:model="cc_emails" rows="2" placeholder="email1@example.com, email2@example.com" />
+                    <flux:textarea wire:model="cc_emails" rows="1" placeholder="email1@example.com, email2@example.com" />
                     <flux:description>Separate with commas.</flux:description>
                     <flux:error name="cc_emails" />
                 </flux:field>
+
+                <flux:switch wire:model="is_active" label="Active" />
 
                 <div class="flex justify-end gap-2">
                     @if($editingId)
@@ -147,10 +154,20 @@ new class extends Component {
             <div class="divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-zinc-900">
                 @foreach($departments as $dept)
                 <div class="flex items-center justify-between p-3">
-                    <div>
-                        <div class="font-medium">{{ $dept->REF_DEPT_NAME }} <span class="text-xs text-neutral-500">({{ $dept->REF_DEPT_ID ?? '-' }}) | {{ $dept->email }}</span></div>
-                        @if($dept->cc_emails)
-                        <div class="text-xs text-neutral-500">{{ Str::limit(is_array($dept->cc_emails) ? implode(', ', $dept->cc_emails) : $dept->cc_emails, 50) }}</div>
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <div class="font-medium">
+                                {{ $dept->REF_DEPT_NAME }} 
+                                <span class="text-xs text-neutral-500">({{ $dept->REF_DEPT_ID ?? '-' }}) | {{ $dept->email }}</span>
+                            </div>
+                            @if($dept->cc_emails)
+                            <div class="text-xs text-neutral-500">{{ Str::limit(is_array($dept->cc_emails) ? implode(', ', $dept->cc_emails) : $dept->cc_emails, 50) }}</div>
+                            @endif
+                        </div>
+                        @if($dept->IS_ACTIVE)
+                            <flux:badge size="sm" color="green" inset="top bottom">Active</flux:badge>
+                        @else
+                            <flux:badge size="sm" color="zinc" inset="top bottom">Inactive</flux:badge>
                         @endif
                     </div>
                     <div class="flex gap-2">

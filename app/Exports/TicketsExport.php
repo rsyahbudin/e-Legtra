@@ -106,12 +106,12 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
 
                 // Common fields
                 'Financial Impact' => $ticket->TCKT_HAS_FIN_IMPACT ? 'Yes' : 'No',
-                'Payment Type' => match ($ticket->payment_type) {
+                'Payment Type' => match ($ticket->TCKT_PAYMENT_TYPE) {
                     'pay' => 'Pay',
                     'receive_payment' => 'Receive Payment',
                     default => '-'
                 },
-                'Recurring' => $ticket->recurring_description ?? '-',
+                'Recurring' => $ticket->TCKT_RECURRING_DESC ?? '-',
                 'TAT Legal Compliance' => $ticket->TCKT_TAT_LGL_COMPLNCE ? 'Yes' : 'No',
 
                 // Pre-Done Questions (Checklist)
