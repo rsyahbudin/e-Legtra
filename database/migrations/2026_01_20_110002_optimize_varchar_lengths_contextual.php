@@ -57,7 +57,7 @@ return new class extends Migration
 
         // Activity Logs Table
         Schema::table('activity_logs', function (Blueprint $table) {
-            $table->string('action', 200)->change(); // Action descriptions
+            $table->string('event', 200)->nullable()->change(); // Action descriptions (event)
             // old_values and new_values stay JSON
         });
 
