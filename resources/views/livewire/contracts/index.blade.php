@@ -27,6 +27,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public int $perPage = 10;
 
+    public string $sortCol = 'TCKT_CREATED_DT';
+    public bool $sortAsc = false;
+
     // Folder Link Modal
     public bool $showFolderLinkModal = false;
 
@@ -69,6 +72,17 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function sortBy(string $column): void
+    {
+        if ($this->sortCol === $column) {
+            $this->sortAsc = !$this->sortAsc;
+        } else {
+            $this->sortCol = $column;
+            $this->sortAsc = true;
+        }
+        $this->resetPage();
+    }
+
     public function getTicketsProperty(): LengthAwarePaginator
     {
         /** @var \App\Models\User $user */
@@ -92,7 +106,7 @@ new #[Layout('components.layouts.app')] class extends Component
         }
         // Legal & super admin: see all tickets
 
-        return $query->orderBy('TCKT_CREATED_DT', 'desc')->paginate($this->perPage);
+        return $query->orderBy($this->sortCol, $this->sortAsc ? 'asc' : 'desc')->paginate($this->perPage);
     }
 
     public function getDivisionsProperty()
@@ -243,13 +257,30 @@ new #[Layout('components.layouts.app')] class extends Component
             <table class="w-full">
                 <thead class="bg-neutral-50 text-xs uppercase text-neutral-600 dark:bg-zinc-800 dark:text-neutral-400">
                     <tr>
-                        <th class="px-4 py-3 text-left">Ticket No.</th>
-                        <th class="px-4 py-3 text-left">Document Title</th>
+                        <th class="px-4 py-3 text-left cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('TCKT_NO')">
+                            Ticket No.
+                            @if($sortCol === 'TCKT_NO')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            Document Title
+                        </th>
                         <!-- <th class="px-4 py-3 text-left">Divisi</th> -->
                         <th class="px-4 py-3 text-left">Department</th>
                         <th class="px-4 py-3 text-center">Status</th>
-                        <th class="px-4 py-3 text-center">Created</th>
-                        <th class="px-4 py-3 text-center">Updated</th>
+                        <th class="px-4 py-3 text-center cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('TCKT_CREATED_DT')">
+                            Created
+                            @if($sortCol === 'TCKT_CREATED_DT')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
+                        <th class="px-4 py-3 text-center cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('TCKT_UPDATED_DT')">
+                            Updated
+                            @if($sortCol === 'TCKT_UPDATED_DT')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
                         <th class="px-4 py-3 text-center">Aging</th>
                         <th class="px-4 py-3 text-center">Action</th>
                     </tr>

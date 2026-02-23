@@ -20,6 +20,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public int $perPage = 10;
 
+    public string $sortCol = 'CONTR_CREATED_DT';
+    public bool $sortAsc = false;
+
     // Folder Link Modal
     public bool $showFolderLinkModal = false;
 
@@ -52,6 +55,17 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function sortBy(string $column): void
+    {
+        if ($this->sortCol === $column) {
+            $this->sortAsc = !$this->sortAsc;
+        } else {
+            $this->sortCol = $column;
+            $this->sortAsc = true;
+        }
+        $this->resetPage();
+    }
+
     public function getContractsProperty(): LengthAwarePaginator
     {
         /** @var \App\Models\User $user */
@@ -79,7 +93,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('CONTR_DEPT_ID', $user->DEPT_ID);
         }
 
-        return $query->orderBy('CONTR_CREATED_DT', 'desc')->paginate($this->perPage);
+        return $query->orderBy($this->sortCol, $this->sortAsc ? 'asc' : 'desc')->paginate($this->perPage);
     }
 
     public function editFolderLink($contractId): void
@@ -203,11 +217,31 @@ new #[Layout('components.layouts.app')] class extends Component
             <table class="w-full text-left text-sm text-neutral-600 dark:text-neutral-400">
                 <thead class="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-zinc-800 dark:text-neutral-400">
                     <tr>
-                        <th class="px-6 py-3 font-medium">Contract #</th>
-                        <th class="px-6 py-3 font-medium">Title</th>
+                        <th class="px-6 py-3 font-medium cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('CONTR_NO')">
+                            Contract #
+                            @if($sortCol === 'CONTR_NO')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
+                        <th class="px-6 py-3 font-medium cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('CONTR_AGREE_NAME')">
+                            Title
+                            @if($sortCol === 'CONTR_AGREE_NAME')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
                         <th class="px-6 py-3 font-medium">Department</th>
-                        <th class="px-6 py-3 font-medium">Start Date</th>
-                        <th class="px-6 py-3 font-medium">End Date</th>
+                        <th class="px-6 py-3 font-medium cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('CONTR_START_DT')">
+                            Start Date
+                            @if($sortCol === 'CONTR_START_DT')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
+                        <th class="px-6 py-3 font-medium cursor-pointer hover:text-neutral-900 dark:hover:text-white" wire:click="sortBy('CONTR_END_DT')">
+                            End Date
+                            @if($sortCol === 'CONTR_END_DT')
+                                <flux:icon name="{{ $sortAsc ? 'chevron-up' : 'chevron-down' }}" class="inline w-3 h-3 ml-1" />
+                            @endif
+                        </th>
                         <th class="px-6 py-3 font-medium text-center">Status</th>
                         <th class="px-6 py-3 font-medium text-end">Action</th>
                     </tr>
