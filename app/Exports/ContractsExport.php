@@ -47,10 +47,10 @@ class ContractsExport implements FromCollection, WithColumnWidths, WithHeadings,
         return $query->get()->map(function ($contract) {
             return [
                 'Contract Number' => $contract->CONTR_NO ?? '-',
-                'Counterpart' => $contract->ticket?->TCKT_COUNTERPART_NAME ?? '-',
+                'Counterpart' => $contract->CONTR_DESC ?? '-',
                 'Division' => $contract->division?->REF_DIV_NAME ?? '-',
                 'Document Type' => $contract->documentType?->REF_DOC_TYPE_NAME ?? '-',
-                'Title' => $contract->CONTR_AGREE_NAME ?? $contract->CONTR_PROP_DOC_TITLE ?? '-',
+                'Title' => $contract->CONTR_AGREE_NAME ?? '-',
                 'Start Date' => $contract->CONTR_START_DT?->format('d/m/Y') ?? '-',
                 'End Date' => $contract->CONTR_END_DT?->format('d/m/Y') ?? '-',
                 'Status' => $contract->status?->LOV_DISPLAY_NAME ?? '-',

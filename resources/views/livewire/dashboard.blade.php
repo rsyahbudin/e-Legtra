@@ -255,7 +255,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             </a>
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                            {{ Str::limit($ticket->TCKT_PROP_DOC_TITLE, 40) }}
+                            {{ Str::limit($ticket->getAnswer('proposed_document_title'), 40) }}
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
                             {{ $ticket->document_type_label }}
@@ -357,7 +357,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 </a>
                             </td>
                             <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                {{ Str::limit($ticket->TCKT_PROP_DOC_TITLE, 50) }}
+                                {{ Str::limit($ticket->getAnswer('proposed_document_title'), 50) }}
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php
@@ -493,7 +493,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 {{ $contract->CONTR_NO }}
                             </td>
                             <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                {{ $contract->CONTR_AGREE_NAME ?? $contract->CONTR_PROP_DOC_TITLE ?? '-' }}
+                                {{ $contract->CONTR_AGREE_NAME ?? '-' }}
                             </td>
                             <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
                                 {{ $contract->CONTR_END_DT?->format('d M Y') ?? '-' }}
@@ -542,7 +542,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             {{ $contract->CONTR_NO }}
                         </p>
                         <p class="truncate text-sm text-neutral-500 dark:text-neutral-400">
-                            {{ $contract->CONTR_AGREE_NAME ?? $contract->CONTR_PROP_DOC_TITLE ?? '-' }} • {{ $contract->division->REF_DIV_NAME ?? '-' }}
+                            {{ $contract->CONTR_AGREE_NAME ?? '-' }} • {{ $contract->division->REF_DIV_NAME ?? '-' }}
                         </p>
                     </div>
                     <div class="text-right">

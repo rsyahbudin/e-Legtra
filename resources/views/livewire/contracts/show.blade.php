@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Contract;
+use App\Models\FormQuestion;
 use App\Models\Ticket;
+use App\Models\TicketAnswer;
 use App\Services\ContractService;
 use App\Services\NotificationService;
 use App\Services\TicketService;
@@ -23,13 +25,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public string $terminationReason = '';
 
-    public bool $preDoneQ1 = false;
-
-    public bool $preDoneQ2 = false;
-
-    public bool $preDoneQ3 = false;
-
-    public string $preDoneRemarks = '';
+    // Dynamic finalization answers (keyed by question code)
+    public array $finalizationAnswers = [];
 
     public function mount(int $contract): void
     {
@@ -43,7 +40,40 @@ new #[Layout('components.layouts.app')] class extends Component
             'activityLogs.user',
             'status',
             'documentType',
+            'answers.question',
         ])->findOrFail($contract);
+    }
+
+    /**
+     * Get form questions for document details display.
+     */
+    public function getFormQuestionsProperty()
+    {
+        return FormQuestion::active()
+            ->forSection('form')
+            ->forDocType($this->ticket->TCKT_DOC_TYPE_ID)
+            ->ordered()
+            ->get();
+    }
+
+    /**
+     * Get finalization questions for this document type.
+     */
+    public function getFinalizationQuestionsProperty()
+    {
+        return FormQuestion::active()
+            ->forSection('finalization')
+            ->forDocType($this->ticket->TCKT_DOC_TYPE_ID)
+            ->ordered()
+            ->get();
+    }
+
+    /**
+     * Check if finalization questions exist for this document type.
+     */
+    public function getHasFinalizationQuestionsProperty(): bool
+    {
+        return $this->finalizationQuestions->count() > 0;
     }
 
     public function moveToOnProcess(): void
@@ -110,10 +140,13 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function openPreDoneModal(): void
     {
-        $this->preDoneQ1 = (bool) $this->ticket->TCKT_POST_QUEST_1;
-        $this->preDoneQ2 = (bool) $this->ticket->TCKT_POST_QUEST_2;
-        $this->preDoneQ3 = (bool) $this->ticket->TCKT_POST_QUEST_3;
-        $this->preDoneRemarks = $this->ticket->TCKT_POST_RMK ?? '';
+        // Pre-populate finalization answers from existing answers
+        $this->finalizationAnswers = [];
+        foreach ($this->ticket->answers as $answer) {
+            if ($answer->question?->QUEST_SECTION === 'finalization') {
+                $this->finalizationAnswers[$answer->question->QUEST_CODE] = $answer->ANS_VALUE;
+            }
+        }
 
         $this->showPreDoneModal = true;
     }
@@ -135,28 +168,45 @@ new #[Layout('components.layouts.app')] class extends Component
             return;
         }
 
-        $preDoneAnswers = null;
-        $remarks = null;
-        if ($this->ticket->documentType?->code === 'perjanjian') {
-            $this->validate([
-                'preDoneQ1' => 'required|boolean',
-                'preDoneQ2' => 'required|boolean',
-                'preDoneQ3' => 'required|boolean',
-                'preDoneRemarks' => 'nullable|string|max:1000',
-            ], [
-                'preDoneQ1.required' => 'Question 1 must be answered',
-                'preDoneQ2.required' => 'Question 2 must be answered',
-                'preDoneQ3.required' => 'Question 3 must be answered',
-                'preDoneRemarks.max' => 'Remarks maximum 1000 characters',
-            ]);
+        // Validate finalization answers if questions exist for this doc type
+        if ($this->hasFinalizationQuestions) {
+            $rules = [];
+            foreach ($this->finalizationQuestions as $question) {
+                $fieldRules = [];
+                $fieldRules[] = $question->QUEST_IS_REQUIRED ? 'required' : 'nullable';
 
-            $preDoneAnswers = [$this->preDoneQ1, $this->preDoneQ2, $this->preDoneQ3];
-            $remarks = $this->preDoneRemarks;
+                match ($question->QUEST_TYPE) {
+                    'text' => $fieldRules[] = 'string',
+                    'boolean' => $fieldRules[] = 'in:0,1',
+                    default => null,
+                };
+
+                $rules["finalizationAnswers.{$question->QUEST_CODE}"] = $fieldRules;
+            }
+
+            $this->validate($rules);
+
+            // Save finalization answers
+            foreach ($this->finalizationQuestions as $question) {
+                $value = $this->finalizationAnswers[$question->QUEST_CODE] ?? null;
+
+                if ($value === null || $value === '') {
+                    continue;
+                }
+
+                TicketAnswer::updateOrCreate(
+                    [
+                        'ANS_TICKET_ID' => $this->ticket->LGL_ROW_ID,
+                        'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
+                    ],
+                    ['ANS_VALUE' => (string) $value]
+                );
+            }
         }
 
         $ticketService = app(TicketService::class);
         $oldStatus = $this->ticket->status?->LOV_VALUE;
-        $ticketService->moveToDone($this->ticket, $preDoneAnswers, $remarks);
+        $ticketService->moveToDone($this->ticket);
 
         $this->ticket->refresh();
 
@@ -340,27 +390,20 @@ new #[Layout('components.layouts.app')] class extends Component
     <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
         <h3 class="mb-3 font-semibold text-blue-900 dark:text-blue-300">Legal Team Actions</h3>
         <div class="flex flex-wrap gap-2">
-            <!-- Edit Button (visible anytime for legal) -->
             <a href="{{ route('tickets.edit', $ticket->LGL_ROW_ID) }}" wire:navigate>
-                <flux:button variant="ghost" icon="pencil">
-                    Edit Ticket
-                </flux:button>
+                <flux:button variant="ghost" icon="pencil">Edit Ticket</flux:button>
             </a>
 
             @if($ticket->status?->LOV_VALUE === 'open')
-                <flux:button wire:click="moveToOnProcess" variant="primary" icon="play">
-                    Process Ticket
-                </flux:button>
-                <flux:button wire:click="openRejectModal" variant="danger" icon="x-mark">
-                    Reject Ticket
-                </flux:button>
+                <flux:button wire:click="moveToOnProcess" variant="primary" icon="play">Process Ticket</flux:button>
+                <flux:button wire:click="openRejectModal" variant="danger" icon="x-mark">Reject Ticket</flux:button>
             @elseif($ticket->status?->LOV_VALUE === 'on_process')
                 @php
-                    $isContractable = in_array($ticket->documentType?->code, ['perjanjian', 'nda', 'surat_kuasa']);
+                    $isContractable = $ticket->documentType?->requires_contract;
                 @endphp
                 
                 @if($isContractable)
-                    @if($ticket->documentType?->code === 'perjanjian')
+                    @if($this->hasFinalizationQuestions)
                         <flux:button wire:click="openPreDoneModal" variant="primary" icon="check">
                             Mark as Done (Create Contract)
                         </flux:button>
@@ -377,9 +420,7 @@ new #[Layout('components.layouts.app')] class extends Component
             @endif
 
             @if($ticket->contract && $ticket->contract->status?->LOV_VALUE === 'active')
-                <flux:button wire:click="openTerminateModal" variant="danger" icon="x-circle">
-                    Terminate Contract
-                </flux:button>
+                <flux:button wire:click="openTerminateModal" variant="danger" icon="x-circle">Terminate Contract</flux:button>
             @endif
         </div>
     </div>
@@ -396,15 +437,11 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Document Type</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->documentType->REF_DOC_TYPE_NAME }}</p>
-            </div>
-            <div class="sm:col-span-2">
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Document Title (Proposed)</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_PROP_DOC_TITLE }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->documentType?->REF_DOC_TYPE_NAME ?? '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Division</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->division->REF_DIV_NAME }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->division?->REF_DIV_NAME ?? '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Department</p>
@@ -412,21 +449,21 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Created By</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->creator->name }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->creator?->name ?? '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Created Date</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_CREATED_DT->format('d M Y H:i') }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_CREATED_DT?->format('d M Y H:i') ?? '-' }}</p>
             </div>
             
             @if($ticket->TCKT_REVIEWED_BY)
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Reviewed By</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->reviewer->name }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->reviewer?->name ?? '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Review Date</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_REVIEWED_DT->format('d M Y H:i') }}</p>
+                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_REVIEWED_DT?->format('d M Y H:i') ?? '-' }}</p>
             </div>
             @endif
 
@@ -436,141 +473,131 @@ new #[Layout('components.layouts.app')] class extends Component
                 <p class="font-medium text-red-600 dark:text-red-400">{{ $ticket->TCKT_REJECT_REASON }}</p>
             </div>
             @endif
-
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Financial Impact</p>
-                <p class="font-medium text-neutral-900 dark:text-white">
-                    @if($ticket->TCKT_HAS_FIN_IMPACT)
-                        <flux:badge color="green">Yes</flux:badge>
-                    @else
-                        <flux:badge color="neutral">No</flux:badge>
-                    @endif
-                </p>
-            </div>
-
-            @if($ticket->TCKT_HAS_FIN_IMPACT && $ticket->TCKT_PAYMENT_TYPE)
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Payment Type</p>
-                <p class="font-medium text-neutral-900 dark:text-white">
-                    @if($ticket->TCKT_PAYMENT_TYPE === 'pay')
-                        <flux:badge color="orange">Pay</flux:badge>
-                    @elseif($ticket->TCKT_PAYMENT_TYPE === 'receive_payment')
-                        <flux:badge color="blue">Receive</flux:badge>
-                    @endif
-                </p>
-            </div>
-            
-            @if($ticket->TCKT_PAYMENT_TYPE === 'pay' && $ticket->TCKT_RECURRING_DESC)
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Recurring Description</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_RECURRING_DESC }}</p>
-            </div>
-            @endif
-            @endif
-
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Legal Turn Around Time</p>
-                <p class="font-medium text-neutral-900 dark:text-white">
-                    @if($ticket->TCKT_TAT_LGL_COMPLNCE)
-                        <flux:badge color="green">Yes</flux:badge>
-                    @else
-                        <flux:badge color="neutral">No</flux:badge>
-                    @endif
-                </p>
-            </div>
-
         </div>
 
-        <!-- Document-specific details -->
-        @if(in_array($ticket->documentType?->code, ['perjanjian', 'nda']) && $ticket->TCKT_COUNTERPART_NAME)
+        {{-- Dynamic Basic Answers (financial impact, payment type, doc title, etc) --}}
+        @php
+            $basicAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'basic' && $a->question?->QUEST_TYPE !== 'file');
+        @endphp
+        @if($basicAnswers->count() > 0)
         <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">{{ $ticket->documentType?->code === 'nda' ? 'NDA' : 'Agreement' }} Details</h3>
+            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Basic Details</h3>
             <div class="grid gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
-                    <p class="text-sm text-neutral-500 dark:text-neutral-400">Counterpart</p>
-                    <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_COUNTERPART_NAME }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-neutral-500 dark:text-neutral-400">Start Date</p>
-                    <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_AGREE_START_DT?->format('d M Y') ?? '-' }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-neutral-500 dark:text-neutral-400">Duration</p>
-                    <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_AGREE_DURATION }}</p>
-                </div>
-                @if(!$ticket->TCKT_IS_AUTO_RENEW && $ticket->TCKT_AGREE_END_DT)
-                <div>
-                    <p class="text-sm text-neutral-500 dark:text-neutral-400">End Date</p>
-                    <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_AGREE_END_DT->format('d M Y') }}</p>
-                </div>
-                @endif
+                @foreach($basicAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div class="{{ in_array($answer->question?->QUEST_TYPE, ['text']) ? 'sm:col-span-2' : '' }}">
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                @if($answer->ANS_VALUE)
+                                    <flux:badge color="green">Yes</flux:badge>
+                                @else
+                                    <flux:badge color="neutral">No</flux:badge>
+                                @endif
+                            @elseif($answer->question?->QUEST_TYPE === 'select')
+                                @php
+                                    $option = collect($answer->question?->QUEST_OPTIONS ?? [])->firstWhere('value', $answer->ANS_VALUE);
+                                @endphp
+                                <flux:badge color="blue">{{ $option['label'] ?? $answer->ANS_VALUE }}</flux:badge>
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
             </div>
         </div>
         @endif
 
+        {{-- Dynamic Document Details (form answers) --}}
+        @php
+            $formAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'form');
+        @endphp
+        @if($formAnswers->count() > 0)
+        <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
+            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Document Details</h3>
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach($formAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div class="{{ $answer->question?->QUEST_TYPE === 'text' ? 'sm:col-span-2' : '' }}">
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                {{ $answer->ANS_VALUE ? 'Yes' : 'No' }}
+                            @elseif($answer->question?->QUEST_TYPE === 'date')
+                                {{ \Carbon\Carbon::parse($answer->ANS_VALUE)->format('d M Y') }}
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
 
+        {{-- Dynamic Supporting Answers (TAT compliance) --}}
+        @php
+            $supportingAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'supporting' && $a->question?->QUEST_TYPE !== 'file');
+        @endphp
+        @if($supportingAnswers->count() > 0)
+        <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
+            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Supporting Information</h3>
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach($supportingAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div>
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                @if($answer->ANS_VALUE)
+                                    <flux:badge color="green">Yes</flux:badge>
+                                @else
+                                    <flux:badge color="neutral">No</flux:badge>
+                                @endif
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
     </div>
 
-    {{-- Pre-Done Questions Answers (for Perjanjian only) --}}
-    @if($ticket->documentType?->code === 'perjanjian' && $ticket->status?->LOV_VALUE === 'done' && ($ticket->TCKT_POST_QUEST_1 !== null || $ticket->TCKT_POST_QUEST_2 !== null || $ticket->TCKT_POST_QUEST_3 !== null))
+    {{-- Finalization Checklist Answers --}}
+    @php
+        $finAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'finalization');
+    @endphp
+    @if($ticket->status?->LOV_VALUE === 'done' && $finAnswers->count() > 0)
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Finalization Checklist</h2>
         
         <div class="space-y-3">
-            <div class="flex items-start gap-3">
-                @if($ticket->TCKT_POST_QUEST_1)
-                    <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                @else
-                    <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                @endif
-                <div>
-                    <p class="text-sm font-medium text-neutral-900 dark:text-white">
-                        Has the document been signed by both parties?
-                    </p>
-                    <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                        {{ $ticket->TCKT_POST_QUEST_1 ? 'Yes' : 'No' }}
-                    </p>
+            @foreach($finAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                @if($answer->question?->QUEST_TYPE === 'boolean')
+                <div class="flex items-start gap-3">
+                    @if($answer->ANS_VALUE)
+                        <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    @else
+                        <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    @endif
+                    <div>
+                        <p class="text-sm font-medium text-neutral-900 dark:text-white">{{ $answer->question->QUEST_LABEL }}</p>
+                        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $answer->ANS_VALUE ? 'Yes' : 'No' }}</p>
+                    </div>
                 </div>
-            </div>
-
-            <div class="flex items-start gap-3">
-                @if($ticket->TCKT_POST_QUEST_2)
-                    <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                @else
-                    <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                @endif
-                <div>
-                    <p class="text-sm font-medium text-neutral-900 dark:text-white">
-                        Has the final document been saved in the internal sharing folder?
-                    </p>
-                    <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                        {{ $ticket->TCKT_POST_QUEST_2 ? 'Yes' : 'No' }}
-                    </p>
+                @elseif($answer->ANS_VALUE)
+                <div class="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+                    <p class="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $answer->question->QUEST_LABEL }}:</p>
+                    <p class="text-sm text-neutral-900 dark:text-white whitespace-pre-wrap">{{ $answer->ANS_VALUE }}</p>
                 </div>
-            </div>
-
-            <div class="flex items-start gap-3">
-                @if($ticket->TCKT_POST_QUEST_3)
-                    <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                @else
-                    <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                 @endif
-                <div>
-                    <p class="text-sm font-medium text-neutral-900 dark:text-white">
-                        Are all mandatory attachments complete?
-                    </p>
-                    <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                        {{ $ticket->TCKT_POST_QUEST_3 ? 'Yes' : 'No' }}
-                    </p>
-                </div>
-            </div>
-
-            @if($ticket->TCKT_POST_RMK)
-            <div class="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
-                <p class="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">Remarks:</p>
-                <p class="text-sm text-neutral-900 dark:text-white whitespace-pre-wrap">{{ $ticket->TCKT_POST_RMK }}</p>
-            </div>
-            @endif
+            @endforeach
         </div>
     </div>
     @endif
@@ -600,27 +627,11 @@ new #[Layout('components.layouts.app')] class extends Component
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">End Date</p>
                 <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->contract->CONTR_END_DT?->format('d M Y') ?? '-' }}</p>
             </div>
-
-            @if($ticket->documentType?->code === 'surat_kuasa' && $ticket->TCKT_GRANTOR)
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Grantor (Pemberi Kuasa)</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_GRANTOR }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Grantee (Penerima Kuasa)</p>
-                <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_GRANTEE }}</p>
-            </div>
-            @endif
             
             @if($ticket->contract->CONTR_DIR_SHARE_LINK)
             <div class="sm:col-span-2">
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">Document Folder</p>
-                <a 
-                    href="{{ $ticket->contract->CONTR_DIR_SHARE_LINK }}" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                >
+                <a href="{{ $ticket->contract->CONTR_DIR_SHARE_LINK }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
                     <flux:icon.link class="size-4" />
                     Open Internal Sharing Folder
                     <flux:icon.arrow-top-right-on-square class="size-3" />
@@ -642,15 +653,22 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-    <!-- Uploaded Documents -->
+    <!-- Uploaded Documents (from dynamic file answers) -->
+    @php
+        $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file');
+        $draftDoc = $ticket->getAnswer('draft_document');
+        $mandatoryDocs = $ticket->getAnswer('mandatory_documents');
+        $mandatoryDocsArray = $mandatoryDocs ? json_decode($mandatoryDocs, true) : null;
+        $approvalDoc = $ticket->getAnswer('approval_document');
+    @endphp
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Uploaded Documents</h2>
         
         <div class="space-y-4">
-            @if($ticket->TCKT_DOC_PATH)
+            @if($draftDoc)
             <div>
                 <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Draft Document</p>
-                <a href="{{ Storage::url($ticket->TCKT_DOC_PATH) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                <a href="{{ Storage::url($draftDoc) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
                     <flux:icon name="document-text" class="h-4 w-4" />
                     <span>Download Draft</span>
                     <flux:icon name="arrow-down-tray" class="h-4 w-4" />
@@ -658,11 +676,11 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             @endif
 
-            @if($ticket->TCKT_DOC_REQUIRED_PATH && count($ticket->TCKT_DOC_REQUIRED_PATH) > 0)
+            @if($mandatoryDocsArray && count($mandatoryDocsArray) > 0)
             <div>
-                <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Mandatory Documents ({{ count($ticket->TCKT_DOC_REQUIRED_PATH) }} files)</p>
+                <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Mandatory Documents ({{ count($mandatoryDocsArray) }} files)</p>
                 <div class="space-y-2">
-                    @foreach($ticket->TCKT_DOC_REQUIRED_PATH as $index => $doc)
+                    @foreach($mandatoryDocsArray as $index => $doc)
                     <a href="{{ Storage::url($doc['path']) }}" download target="_blank" class="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-sm text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50">
                         <flux:icon name="document" class="h-4 w-4" />
                         <span class="flex-1">{{ $doc['name'] }}</span>
@@ -673,10 +691,10 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             @endif
 
-            @if($ticket->TCKT_DOC_APPROVAL_PATH)
+            @if($approvalDoc)
             <div>
                 <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Approval Document</p>
-                <a href="{{ Storage::url($ticket->TCKT_DOC_APPROVAL_PATH) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50">
+                <a href="{{ Storage::url($approvalDoc) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50">
                     <flux:icon name="document-check" class="h-4 w-4" />
                     <span>Download Approval</span>
                     <flux:icon name="arrow-down-tray" class="h-4 w-4" />
@@ -684,7 +702,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             @endif
 
-            @if(!$ticket->TCKT_DOC_PATH && (!$ticket->TCKT_DOC_REQUIRED_PATH || count($ticket->TCKT_DOC_REQUIRED_PATH) == 0) && !$ticket->TCKT_DOC_APPROVAL_PATH)
+            @if(!$draftDoc && !$mandatoryDocsArray && !$approvalDoc)
             <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">No uploaded documents</p>
             @endif
         </div>
@@ -692,7 +710,6 @@ new #[Layout('components.layouts.app')] class extends Component
 
     <!-- Activity Log -->
     @php
-        // Merge ticket and contract activity logs
         $allLogs = $ticket->activityLogs;
         if ($ticket->contract && $ticket->contract->activityLogs) {
             $allLogs = $allLogs->merge($ticket->contract->activityLogs);
@@ -726,13 +743,11 @@ new #[Layout('components.layouts.app')] class extends Component
                 <flux:heading size="lg">Reject Ticket</flux:heading>
                 <flux:subheading>Please provide a reason for rejecting this ticket</flux:subheading>
             </div>
-
             <flux:field>
                 <flux:label>Rejection Reason *</flux:label>
                 <flux:textarea wire:model="rejectionReason" rows="4" placeholder="Explain rejection reason..." required />
                 <flux:error name="rejectionReason" />
             </flux:field>
-
             <div class="flex gap-2">
                 <flux:spacer />
                 <flux:button variant="ghost" type="button" wire:click="$set('showRejectModal', false)">Cancel</flux:button>
@@ -748,13 +763,11 @@ new #[Layout('components.layouts.app')] class extends Component
                 <flux:heading size="lg">Terminate Contract</flux:heading>
                 <flux:subheading>Please provide a reason for terminating this contract</flux:subheading>
             </div>
-
             <flux:field>
                 <flux:label>Termination Reason *</flux:label>
                 <flux:textarea wire:model="terminationReason" rows="4" placeholder="Explain termination reason..." required />
                 <flux:error name="terminationReason" />
             </flux:field>
-
             <div class="flex gap-2">
                 <flux:spacer />
                 <flux:button variant="ghost" type="button" wire:click="$set('showTerminateModal', false)">Cancel</flux:button>
@@ -763,7 +776,8 @@ new #[Layout('components.layouts.app')] class extends Component
         </form>
     </flux:modal>
 
-    {{-- Pre-Done Questions Modal --}}
+    {{-- Dynamic Pre-Done Questions Modal --}}
+    @if($this->hasFinalizationQuestions)
     <flux:modal name="pre-done-modal" :open="$showPreDoneModal" wire:model="showPreDoneModal">
         <form wire:submit="moveToDone" class="space-y-6">
             <div>
@@ -772,57 +786,33 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <div class="space-y-4">
-                <flux:field>
-                    <flux:label>1. Has the document been signed by both parties? *</flux:label>
-                    <div class="flex gap-4 mt-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ1" value="1" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">Yes</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ1" value="0" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">No</span>
-                        </label>
-                    </div>
-                    <flux:error name="preDoneQ1" />
-                </flux:field>
+                @foreach($this->finalizationQuestions as $index => $question)
+                <flux:field wire:key="modal-fin-{{ $question->QUEST_CODE }}">
+                    <flux:label>{{ $index + 1 }}. {{ $question->QUEST_LABEL }} {{ $question->QUEST_IS_REQUIRED ? '*' : '' }}</flux:label>
+                    
+                    @if($question->QUEST_TYPE === 'boolean')
+                        <div class="flex gap-4 mt-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" value="1" class="size-4 text-blue-600" {{ $question->QUEST_IS_REQUIRED ? 'required' : '' }} />
+                                <span class="text-sm text-neutral-700 dark:text-neutral-300">Yes</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" value="0" class="size-4 text-blue-600" {{ $question->QUEST_IS_REQUIRED ? 'required' : '' }} />
+                                <span class="text-sm text-neutral-700 dark:text-neutral-300">No</span>
+                            </label>
+                        </div>
+                    @elseif($question->QUEST_TYPE === 'text')
+                        <flux:textarea wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" rows="3" placeholder="{{ $question->QUEST_PLACEHOLDER }}" />
+                    @else
+                        <flux:input wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" placeholder="{{ $question->QUEST_PLACEHOLDER }}" />
+                    @endif
 
-                <flux:field>
-                    <flux:label>2. Has the final document been saved in the internal sharing folder? *</flux:label>
-                    <div class="flex gap-4 mt-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ2" value="1" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">Yes</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ2" value="0" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">No</span>
-                        </label>
-                    </div>
-                    <flux:error name="preDoneQ2" />
+                    @if($question->QUEST_DESCRIPTION)
+                        <flux:description>{{ $question->QUEST_DESCRIPTION }}</flux:description>
+                    @endif
+                    <flux:error name="finalizationAnswers.{{ $question->QUEST_CODE }}" />
                 </flux:field>
-
-                <flux:field>
-                    <flux:label>3. Are all mandatory attachments complete? *</flux:label>
-                    <div class="flex gap-4 mt-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ3" value="1" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">Yes</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" wire:model="preDoneQ3" value="0" class="size-4 text-blue-600" required />
-                            <span class="text-sm text-neutral-700 dark:text-neutral-300">No</span>
-                        </label>
-                    </div>
-                    <flux:error name="preDoneQ3" />
-                </flux:field>
-
-                <flux:field>
-                    <flux:label>Remarks (Optional)</flux:label>
-                    <flux:textarea wire:model="preDoneRemarks" rows="3" placeholder="Additional notes or remarks (max 1000 characters)" />
-                    <flux:description>Maximum 1000 characters</flux:description>
-                    <flux:error name="preDoneRemarks" />
-                </flux:field>
+                @endforeach
             </div>
 
             <div class="flex gap-2">
@@ -832,4 +822,6 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </form>
     </flux:modal>
+    @endif
+
 </div>

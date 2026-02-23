@@ -21,14 +21,23 @@ class Contract extends Model
 
     const UPDATED_AT = 'CONTR_UPDATED_DT';
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function ($contract) {
+            if (auth()->check()) {
+                $contract->CONTR_UPDATED_BY = auth()->user()->LGL_ROW_ID;
+            }
+        });
+    }
+
     protected $fillable = [
         'TCKT_ID',
         'CONTR_NO',
         'CONTR_AGREE_NAME',
-        'CONTR_PROP_DOC_TITLE',
         'CONTR_DOC_TYPE_ID',
-        'CONTR_HAS_FIN_IMPACT',
-        'CONTR_TAT_LGL_COMPLNCE',
         'CONTR_DIV_ID',
         'CONTR_DEPT_ID',
         'CONTR_PIC_ID',
@@ -39,9 +48,6 @@ class Contract extends Model
         'CONTR_STS_ID',
         'CONTR_TERMINATE_DT',
         'CONTR_TERMINATE_REASON',
-        'CONTR_DOC_DRAFT_PATH',
-        'CONTR_DOC_REQUIRED_PATH',
-        'CONTR_DOC_APPROVAL_PATH',
         'CONTR_CREATED_BY',
         'CONTR_DIR_SHARE_LINK',
     ];
@@ -52,9 +58,6 @@ class Contract extends Model
             'CONTR_START_DT' => 'date',
             'CONTR_END_DT' => 'date',
             'CONTR_IS_AUTO_RENEW' => 'boolean',
-            'CONTR_HAS_FIN_IMPACT' => 'boolean',
-            'CONTR_TAT_LGL_COMPLNCE' => 'boolean',
-            'CONTR_DOC_REQUIRED_PATH' => 'array',
             'CONTR_TERMINATE_DT' => 'datetime',
         ];
     }
@@ -65,6 +68,14 @@ class Contract extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class, 'TCKT_ID');
+    }
+
+    /**
+     * Read a value from the parent ticket's dynamic answers.
+     */
+    public function getTicketAnswer(string $questionCode): ?string
+    {
+        return $this->ticket?->getAnswer($questionCode);
     }
 
     /**
@@ -305,7 +316,9 @@ class Contract extends Model
      */
     public function getFinancialImpactLabelAttribute(): ?string
     {
-        return $this->CONTR_HAS_FIN_IMPACT ? 'Ada' : 'Tidak Ada';
+        $hasImpact = $this->getTicketAnswer('has_financial_impact');
+
+        return $hasImpact ? 'Ada' : 'Tidak Ada';
     }
 
     /**

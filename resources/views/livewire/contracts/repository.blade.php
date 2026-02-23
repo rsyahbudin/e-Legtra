@@ -60,7 +60,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $query = Contract::with(['department', 'division'])
             ->when($this->search, fn ($q) => $q->where(function ($q) {
                 $q->where('CONTR_NO', 'like', "%{$this->search}%")
-                    ->orWhere('CONTR_PROP_DOC_TITLE', 'like', "%{$this->search}%");
+                    ->orWhere('CONTR_AGREE_NAME', 'like', "%{$this->search}%");
             }))
             ->when($this->statusFilter, function ($q) {
                 if ($this->statusFilter === 'active') {

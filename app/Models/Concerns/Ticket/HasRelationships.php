@@ -7,9 +7,11 @@ use App\Models\Contract;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\DocumentType;
+use App\Models\TicketAnswer;
 use App\Models\TicketStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -78,5 +80,23 @@ trait HasRelationships
     public function activityLogs(): MorphMany
     {
         return $this->morphMany(ActivityLog::class, 'subject', 'LOG_SUBJECT_TYPE', 'LOG_SUBJECT_ID');
+    }
+
+    /**
+     * Get the dynamic answers for this ticket.
+     */
+    public function answers(): HasMany
+    {
+        return $this->hasMany(TicketAnswer::class, 'ANS_TICKET_ID');
+    }
+
+    /**
+     * Get a single answer value by question code.
+     */
+    public function getAnswer(string $questionCode): ?string
+    {
+        return $this->answers
+            ->first(fn ($answer) => $answer->question?->QUEST_CODE === $questionCode)
+            ?->ANS_VALUE;
     }
 }

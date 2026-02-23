@@ -33,11 +33,8 @@ class SendContractReminders extends Command
             $reminderDays = json_decode($reminderDays, true) ?? [60, 30, 7];
         }
 
-        // Only process these document types
-        $includedTypes = ['perjanjian', 'adendum', 'amandemen'];
-
-        // Get Document Type IDs for included types
-        $documentTypeIds = \App\Models\DocumentType::whereIn('code', $includedTypes)->pluck('LGL_ROW_ID')->toArray();
+        // Get Document Type IDs for types that require a contract
+        $documentTypeIds = \App\Models\DocumentType::active()->where('requires_contract', true)->pluck('LGL_ROW_ID')->toArray();
         $activeStatusId = \App\Models\ContractStatus::getIdByCode('active');
 
         // Get all active contracts with these document types

@@ -70,15 +70,10 @@ class TicketService
 
     /**
      * Move ticket to "done" status and calculate aging.
+     * Finalization answers are saved by the component before calling this.
      */
-    public function moveToDone(Ticket $ticket, ?array $preDoneAnswers = null, ?string $remarks = null): void
+    public function moveToDone(Ticket $ticket): void
     {
-        if ($ticket->documentType?->code === 'perjanjian') {
-            if (! $preDoneAnswers || count($preDoneAnswers) !== 3) {
-                throw new \InvalidArgumentException('Pre-done questions must be answered for Perjanjian');
-            }
-        }
-
         $agingEnd = now();
         $agingDuration = null;
 
@@ -86,20 +81,11 @@ class TicketService
             $agingDuration = $ticket->TCKT_AGING_START_DT->diffInMinutes($agingEnd);
         }
 
-        $updateData = [
+        $ticket->update([
             'TCKT_STS_ID' => TicketStatus::getIdByCode('done'),
             'TCKT_AGING_END_DT' => $agingEnd,
             'TCKT_AGING_DURATION' => $agingDuration,
-        ];
-
-        if ($ticket->documentType?->code === 'perjanjian' && $preDoneAnswers) {
-            $updateData['TCKT_POST_QUEST_1'] = $preDoneAnswers[0];
-            $updateData['TCKT_POST_QUEST_2'] = $preDoneAnswers[1];
-            $updateData['TCKT_POST_QUEST_3'] = $preDoneAnswers[2];
-            $updateData['TCKT_POST_RMK'] = $remarks;
-        }
-
-        $ticket->update($updateData);
+        ]);
 
         $this->logTicketActivity($ticket, 'Ticket completed (Done)');
     }

@@ -106,13 +106,18 @@ new #[Layout('components.layouts.app')] class extends Component
     // }
 
     public function getTicketStatusesProperty()
-{
-    return TicketStatus::where('LOV_TYPE', 'TICKET_STATUS')
-        ->where('IS_ACTIVE', 1)
-        ->orderByRaw('COALESCE(LOV_SEQ_NO, 999)')
-        ->orderBy('LOV_DISPLAY_NAME')
-        ->get();
-}
+    {
+        return TicketStatus::where('LOV_TYPE', 'TICKET_STATUS')
+            ->where('IS_ACTIVE', 1)
+            ->orderByRaw('COALESCE(LOV_SEQ_NO, 999)')
+            ->orderBy('LOV_DISPLAY_NAME')
+            ->get();
+    }
+
+    public function getDocumentTypesProperty()
+    {
+        return \App\Models\DocumentType::active()->get();
+    }
 
 
     public function editFolderLink($contractId): void
@@ -218,12 +223,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
             <flux:select wire:model.live="typeFilter" placeholder="Document Type">
                 <flux:select.option value="">All Types</flux:select.option>
-                <flux:select.option value="perjanjian">Agreement</flux:select.option>
-                <flux:select.option value="nda">NDA</flux:select.option>
-                <flux:select.option value="surat_kuasa">Power of Attorney</flux:select.option>
-                <flux:select.option value="pendapat_hukum">Legal Opinion</flux:select.option>
-                <flux:select.option value="surat_pernyataan">Statement Letter</flux:select.option>
-                <flux:select.option value="surat_lainnya">Other Letters</flux:select.option>
+                @foreach($this->documentTypes as $type)
+                    <flux:select.option value="{{ $type->code }}">{{ $type->REF_DOC_TYPE_NAME }}</flux:select.option>
+                @endforeach
             </flux:select>
 
             <flux:select wire:model.live="divisionFilter">

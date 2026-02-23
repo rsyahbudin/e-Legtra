@@ -5,9 +5,11 @@ use App\Models\ContractStatus;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\DocumentType;
+use App\Models\FormQuestion;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Ticket;
+use App\Models\TicketAnswer;
 use App\Models\TicketStatus;
 use App\Models\User;
 use Livewire\Volt\Volt;
@@ -46,15 +48,27 @@ test('authorized user can view ticket details', function () {
         ]
     );
 
+    // Seed form questions for dynamic answers
+    $this->seed(\Database\Seeders\FormQuestionSeeder::class);
+
     $ticket = Ticket::create([
         'TCKT_NO' => 'TIC-TEST-001',
         'DIV_ID' => $division->LGL_ROW_ID,
         'DEPT_ID' => $department->LGL_ROW_ID,
         'TCKT_STS_ID' => $status->LGL_ID,
-        'TCKT_PROP_DOC_TITLE' => 'Test Document',
         'TCKT_CREATED_BY' => $user->LGL_ROW_ID,
         'TCKT_CREATED_DT' => now(),
     ]);
+
+    // Save proposed doc title as dynamic answer
+    $docTitleQ = FormQuestion::where('QUEST_CODE', 'proposed_document_title')->first();
+    if ($docTitleQ) {
+        TicketAnswer::create([
+            'ANS_TICKET_ID' => $ticket->LGL_ROW_ID,
+            'ANS_QUESTION_ID' => $docTitleQ->LGL_ROW_ID,
+            'ANS_VALUE' => 'Test Document',
+        ]);
+    }
 
     $this->actingAs($user);
 
@@ -93,7 +107,6 @@ test('legal user can move ticket to on process', function () {
         'TCKT_NO' => 'TIC-TEST-PROCESS',
         'DIV_ID' => $division->LGL_ROW_ID,
         'TCKT_STS_ID' => $statusOpen->LGL_ID,
-        'TCKT_PROP_DOC_TITLE' => 'Test Process',
         'TCKT_CREATED_BY' => $user->LGL_ROW_ID,
         'TCKT_CREATED_DT' => now(),
     ]);
@@ -137,30 +150,46 @@ test('legal user can move ticket to done and create contract', function () {
     // Need ContractStatus 'active'
     ContractStatus::firstOrCreate(['LOV_VALUE' => 'active'], ['LOV_TYPE' => 'CONTRACT_STATUS', 'LOV_DISPLAY_NAME' => 'Active', 'IS_ACTIVE' => true]);
 
+    // Seed finalization questions and basic/supporting questions
+    $this->seed(\Database\Seeders\FormQuestionSeeder::class);
+
     $ticket = Ticket::create([
         'TCKT_NO' => 'TIC-TEST-DONE',
         'DIV_ID' => $division->LGL_ROW_ID,
         'TCKT_DOC_TYPE_ID' => $docType->LGL_ROW_ID,
         'TCKT_STS_ID' => $statusProcess->LGL_ID,
-        'TCKT_PROP_DOC_TITLE' => 'Test Done',
         'TCKT_CREATED_BY' => $user->LGL_ROW_ID,
         'TCKT_CREATED_DT' => now(),
         'TCKT_AGING_START_DT' => now()->subHours(1),
-        // Helper fields for contract creation
-        'TCKT_AGREE_START_DT' => now(),
-        'TCKT_AGREE_END_DT' => now()->addYear(),
-        'TCKT_HAS_FIN_IMPACT' => false,
-        'TCKT_IS_AUTO_RENEW' => false,
     ]);
+
+    // Save dynamic answers needed for contract creation
+    $docTitleQ = FormQuestion::where('QUEST_CODE', 'proposed_document_title')->first();
+    $hasFinImpactQ = FormQuestion::where('QUEST_CODE', 'has_financial_impact')->first();
+    $startDateQ = FormQuestion::where('QUEST_CODE', 'agreement_start_date')->first();
+    $endDateQ = FormQuestion::where('QUEST_CODE', 'agreement_end_date')->first();
+
+    if ($docTitleQ) {
+        TicketAnswer::create(['ANS_TICKET_ID' => $ticket->LGL_ROW_ID, 'ANS_QUESTION_ID' => $docTitleQ->LGL_ROW_ID, 'ANS_VALUE' => 'Test Done']);
+    }
+    if ($hasFinImpactQ) {
+        TicketAnswer::create(['ANS_TICKET_ID' => $ticket->LGL_ROW_ID, 'ANS_QUESTION_ID' => $hasFinImpactQ->LGL_ROW_ID, 'ANS_VALUE' => '0']);
+    }
+    if ($startDateQ) {
+        TicketAnswer::create(['ANS_TICKET_ID' => $ticket->LGL_ROW_ID, 'ANS_QUESTION_ID' => $startDateQ->LGL_ROW_ID, 'ANS_VALUE' => now()->format('Y-m-d')]);
+    }
+    if ($endDateQ) {
+        TicketAnswer::create(['ANS_TICKET_ID' => $ticket->LGL_ROW_ID, 'ANS_QUESTION_ID' => $endDateQ->LGL_ROW_ID, 'ANS_VALUE' => now()->addYear()->format('Y-m-d')]);
+    }
 
     $this->actingAs($user);
 
-    // Perjanjian requires pre-done answers
+    // Perjanjian requires finalization answers
     Volt::test('contracts.show', ['contract' => $ticket->LGL_ROW_ID])
-        ->set('preDoneQ1', true)
-        ->set('preDoneQ2', true)
-        ->set('preDoneQ3', true)
-        ->set('preDoneRemarks', 'All good')
+        ->set('finalizationAnswers.signed_by_both_parties', '1')
+        ->set('finalizationAnswers.saved_in_sharing_folder', '1')
+        ->set('finalizationAnswers.mandatory_attachments_complete', '1')
+        ->set('finalizationAnswers.finalization_remarks', 'All good')
         ->call('moveToDone')
         ->assertDispatched('notify');
 
@@ -203,9 +232,8 @@ test('legal user can reject ticket', function () {
     $ticket = Ticket::create([
         'TCKT_NO' => 'TIC-TEST-REJECT',
         'DIV_ID' => $division->LGL_ROW_ID,
-        'TCKT_DOC_TYPE_ID' => $docType->LGL_ROW_ID, // Use LGL_ROW_ID
+        'TCKT_DOC_TYPE_ID' => $docType->LGL_ROW_ID,
         'TCKT_STS_ID' => $statusProcess->LGL_ID,
-        'TCKT_PROP_DOC_TITLE' => 'Test Rejected',
         'TCKT_CREATED_BY' => $user->LGL_ROW_ID,
         'TCKT_CREATED_DT' => now(),
         'TCKT_AGING_START_DT' => now(),

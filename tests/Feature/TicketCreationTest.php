@@ -7,12 +7,16 @@ use App\Models\Division;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Ticket;
+use App\Models\TicketAnswer;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     Storage::fake('public');
+
+    // Seed form questions so dynamic answers can be saved
+    $this->seed(\Database\Seeders\FormQuestionSeeder::class);
 
     // Create divisions and departments
     $this->division = Division::factory()->create();
@@ -32,23 +36,29 @@ test('superadmin can create ticket', function () {
     Volt::test('contracts.create')
         ->set('DIV_ID', $this->division->LGL_ROW_ID)
         ->set('DEPT_ID', $this->department->LGL_ROW_ID)
-        ->set('has_financial_impact', true)
-        ->set('TCKT_PAYMENT_TYPE', 'pay')
-        ->set('TCKT_RECURRING_DESC', 'Monthly')
-        ->set('proposed_document_title', 'Test Document')
+        ->set('dynamicAnswers.has_financial_impact', '1')
+        ->set('dynamicAnswers.payment_type', 'pay')
+        ->set('dynamicAnswers.recurring_desc', 'Monthly')
+        ->set('dynamicAnswers.proposed_document_title', 'Test Document')
         ->set('document_type', 'perjanjian')
-        ->set('counterpart_name', 'Test Company')
-        ->set('agreement_start_date', now()->addDays(10)->format('Y-m-d'))
-        ->set('agreement_duration', '2 years')
-        ->set('is_auto_renewal', false)
-        ->set('agreement_end_date', now()->addYears(2)->format('Y-m-d'))
-        ->set('tat_legal_compliance', true)
-        ->set('mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicAnswers.counterpart_name', 'Test Company')
+        ->set('dynamicAnswers.agreement_start_date', now()->addDays(10)->format('Y-m-d'))
+        ->set('dynamicAnswers.agreement_duration', '2 years')
+        ->set('dynamicAnswers.is_auto_renewal', '0')
+        ->set('dynamicAnswers.agreement_end_date', now()->addYears(2)->format('Y-m-d'))
+        ->set('dynamicAnswers.tat_legal_compliance', '1')
+        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 
     expect(Ticket::count())->toBe(1);
+
+    // Verify dynamic answers were created
+    $ticket = Ticket::first();
+    expect(TicketAnswer::where('ANS_TICKET_ID', $ticket->LGL_ROW_ID)->count())->toBeGreaterThan(0);
+    expect($ticket->getAnswer('proposed_document_title'))->toBe('Test Document');
+    expect($ticket->getAnswer('has_financial_impact'))->toBe('1');
 });
 
 test('user with tickets.create permission can create ticket', function () {
@@ -78,16 +88,16 @@ test('user with tickets.create permission can create ticket', function () {
     Volt::test('contracts.create')
         ->set('DIV_ID', $this->division->LGL_ROW_ID)
         ->set('DEPT_ID', $this->department->LGL_ROW_ID)
-        ->set('has_financial_impact', false)
-        ->set('proposed_document_title', 'User Created Document')
+        ->set('dynamicAnswers.has_financial_impact', '0')
+        ->set('dynamicAnswers.proposed_document_title', 'User Created Document')
         ->set('document_type', 'surat_kuasa')
-        ->set('kuasa_pemberi', 'John Doe')
-        ->set('kuasa_penerima', 'Jane Smith')
-        ->set('kuasa_start_date', now()->addDays(5)->format('Y-m-d'))
-        ->set('kuasa_end_date', now()->addMonths(6)->format('Y-m-d'))
-        ->set('tat_legal_compliance', true)
-        ->set('mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicAnswers.kuasa_pemberi', 'John Doe')
+        ->set('dynamicAnswers.kuasa_penerima', 'Jane Smith')
+        ->set('dynamicAnswers.kuasa_start_date', now()->addDays(5)->format('Y-m-d'))
+        ->set('dynamicAnswers.kuasa_end_date', now()->addMonths(6)->format('Y-m-d'))
+        ->set('dynamicAnswers.tat_legal_compliance', '1')
+        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 
@@ -125,20 +135,20 @@ test('legal role user can create ticket', function () {
     Volt::test('contracts.create')
         ->set('DIV_ID', $this->division->LGL_ROW_ID)
         ->set('DEPT_ID', $this->department->LGL_ROW_ID)
-        ->set('has_financial_impact', true)
-        ->set('TCKT_PAYMENT_TYPE', 'pay')
-        ->set('TCKT_RECURRING_DESC', 'Monthly')
-        ->set('proposed_document_title', 'Legal Team Document')
+        ->set('dynamicAnswers.has_financial_impact', '1')
+        ->set('dynamicAnswers.payment_type', 'pay')
+        ->set('dynamicAnswers.recurring_desc', 'Monthly')
+        ->set('dynamicAnswers.proposed_document_title', 'Legal Team Document')
         ->set('document_type', 'nda')
-        ->set('counterpart_name', 'Partner Company')
-        ->set('agreement_start_date', now()->format('Y-m-d'))
-        ->set('agreement_duration', '1 year')
-        ->set('is_auto_renewal', true)
-        ->set('renewal_period', '1 year')
-        ->set('renewal_notification_days', 30)
-        ->set('tat_legal_compliance', false)
-        ->set('mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicAnswers.nda_counterpart_name', 'Partner Company')
+        ->set('dynamicAnswers.nda_agreement_start_date', now()->format('Y-m-d'))
+        ->set('dynamicAnswers.nda_agreement_duration', '1 year')
+        ->set('dynamicAnswers.nda_is_auto_renewal', '1')
+        ->set('dynamicAnswers.nda_renewal_period', '1 year')
+        ->set('dynamicAnswers.nda_renewal_notification_days', 30)
+        ->set('dynamicAnswers.tat_legal_compliance', '0')
+        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 

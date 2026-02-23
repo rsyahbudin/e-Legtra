@@ -20,6 +20,12 @@ class Ticket extends Model
     protected static function booted(): void
     {
         static::observe(TicketObserver::class);
+
+        static::updating(function ($ticket) {
+            if (auth()->check()) {
+                $ticket->TCKT_UPDATED_BY = auth()->user()->LGL_ROW_ID;
+            }
+        });
     }
 
     protected $table = 'LGL_TICKET_MASTER';
@@ -34,27 +40,7 @@ class Ticket extends Model
         'TCKT_NO',
         'DIV_ID',
         'DEPT_ID',
-        'TCKT_HAS_FIN_IMPACT',
-        'TCKT_PAYMENT_TYPE',
-        'TCKT_RECURRING_DESC',
-        'TCKT_PROP_DOC_TITLE',
-        'TCKT_DOC_PATH',
         'TCKT_DOC_TYPE_ID',
-        'TCKT_COUNTERPART_NAME',
-        'TCKT_AGREE_START_DT',
-        'TCKT_AGREE_DURATION',
-        'TCKT_IS_AUTO_RENEW',
-        'TCKT_RENEW_PERIOD',
-        'TCKT_RENEW_NOTIF_DAYS',
-        'TCKT_AGREE_END_DT',
-        'TCKT_TERMINATE_NOTIF_DT',
-        'TCKT_GRANTOR',
-        'TCKT_GRANTEE',
-        'TCKT_GRANT_START_DT',
-        'TCKT_GRANT_END_DT',
-        'TCKT_TAT_LGL_COMPLNCE',
-        'TCKT_DOC_REQUIRED_PATH',
-        'TCKT_DOC_APPROVAL_PATH',
         'TCKT_STS_ID',
         'TCKT_REVIEWED_DT',
         'TCKT_REVIEWED_BY',
@@ -62,31 +48,16 @@ class Ticket extends Model
         'TCKT_AGING_END_DT',
         'TCKT_AGING_DURATION',
         'TCKT_REJECT_REASON',
-        'TCKT_POST_QUEST_1',
-        'TCKT_POST_QUEST_2',
-        'TCKT_POST_QUEST_3',
-        'TCKT_POST_RMK',
         'TCKT_CREATED_BY',
+        'TCKT_UPDATED_BY',
     ];
 
     protected function casts(): array
     {
         return [
-            'TCKT_HAS_FIN_IMPACT' => 'boolean',
-            'TCKT_IS_AUTO_RENEW' => 'boolean',
-            'TCKT_TAT_LGL_COMPLNCE' => 'boolean',
-            'TCKT_DOC_REQUIRED_PATH' => 'array',
-            'TCKT_AGREE_START_DT' => 'date',
-            'TCKT_AGREE_END_DT' => 'date',
-            'TCKT_GRANT_START_DT' => 'date',
-            'TCKT_GRANT_END_DT' => 'date',
-            'TCKT_TERMINATE_NOTIF_DT' => 'date',
             'TCKT_REVIEWED_DT' => 'datetime',
             'TCKT_AGING_START_DT' => 'datetime',
             'TCKT_AGING_END_DT' => 'datetime',
-            'TCKT_POST_QUEST_1' => 'boolean',
-            'TCKT_POST_QUEST_2' => 'boolean',
-            'TCKT_POST_QUEST_3' => 'boolean',
         ];
     }
 }

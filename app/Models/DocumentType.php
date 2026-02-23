@@ -25,6 +25,7 @@ class DocumentType extends Model
         'description',
         'requires_contract',
         'REF_DOC_TYPE_IS_ACTIVE',
+        'DOC_TYPE_SORT_ORDER',
     ];
 
     protected function casts(): array
@@ -74,7 +75,9 @@ class DocumentType extends Model
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('REF_DOC_TYPE_IS_ACTIVE', true)->orderBy('REF_DOC_TYPE_NAME');
+        return $query->where('REF_DOC_TYPE_IS_ACTIVE', true)
+            ->orderBy('DOC_TYPE_SORT_ORDER', 'asc')
+            ->orderBy('REF_DOC_TYPE_NAME', 'asc');
     }
 
     /**
