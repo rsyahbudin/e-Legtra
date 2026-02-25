@@ -426,7 +426,9 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-    <!-- Ticket Information -->
+    
+
+<!-- Ticket Information -->
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Ticket Information</h2>
         
@@ -474,135 +476,9 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
             @endif
         </div>
-
-        {{-- Dynamic Basic Answers (financial impact, payment type, doc title, etc) --}}
-        @php
-            $basicAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'basic' && $a->question?->QUEST_TYPE !== 'file');
-        @endphp
-        @if($basicAnswers->count() > 0)
-        <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Basic Details</h3>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($basicAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div class="{{ in_array($answer->question?->QUEST_TYPE, ['text']) ? 'sm:col-span-2' : '' }}">
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                @if($answer->ANS_VALUE)
-                                    <flux:badge color="green">Yes</flux:badge>
-                                @else
-                                    <flux:badge color="neutral">No</flux:badge>
-                                @endif
-                            @elseif($answer->question?->QUEST_TYPE === 'select')
-                                @php
-                                    $option = collect($answer->question?->QUEST_OPTIONS ?? [])->firstWhere('value', $answer->ANS_VALUE);
-                                @endphp
-                                <flux:badge color="blue">{{ $option['label'] ?? $answer->ANS_VALUE }}</flux:badge>
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
-
-        {{-- Dynamic Document Details (form answers) --}}
-        @php
-            $formAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'form');
-        @endphp
-        @if($formAnswers->count() > 0)
-        <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Document Details</h3>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($formAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div class="{{ $answer->question?->QUEST_TYPE === 'text' ? 'sm:col-span-2' : '' }}">
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                {{ $answer->ANS_VALUE ? 'Yes' : 'No' }}
-                            @elseif($answer->question?->QUEST_TYPE === 'date')
-                                {{ \Carbon\Carbon::parse($answer->ANS_VALUE)->format('d M Y') }}
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
-
-        {{-- Dynamic Supporting Answers (TAT compliance) --}}
-        @php
-            $supportingAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'supporting' && $a->question?->QUEST_TYPE !== 'file');
-        @endphp
-        @if($supportingAnswers->count() > 0)
-        <div class="mt-6 border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            <h3 class="mb-3 font-semibold text-neutral-900 dark:text-white">Supporting Information</h3>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($supportingAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div>
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                @if($answer->ANS_VALUE)
-                                    <flux:badge color="green">Yes</flux:badge>
-                                @else
-                                    <flux:badge color="neutral">No</flux:badge>
-                                @endif
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
     </div>
 
-    {{-- Finalization Checklist Answers --}}
-    @php
-        $finAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'finalization');
-    @endphp
-    @if($ticket->status?->LOV_VALUE === 'done' && $finAnswers->count() > 0)
-    <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Finalization Checklist</h2>
-        
-        <div class="space-y-3">
-            @foreach($finAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                @if($answer->question?->QUEST_TYPE === 'boolean')
-                <div class="flex items-start gap-3">
-                    @if($answer->ANS_VALUE)
-                        <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    @else
-                        <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    @endif
-                    <div>
-                        <p class="text-sm font-medium text-neutral-900 dark:text-white">{{ $answer->question->QUEST_LABEL }}</p>
-                        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $answer->ANS_VALUE ? 'Yes' : 'No' }}</p>
-                    </div>
-                </div>
-                @elseif($answer->ANS_VALUE)
-                <div class="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
-                    <p class="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $answer->question->QUEST_LABEL }}:</p>
-                    <p class="text-sm text-neutral-900 dark:text-white whitespace-pre-wrap">{{ $answer->ANS_VALUE }}</p>
-                </div>
-                @endif
-            @endforeach
-        </div>
-    </div>
-    @endif
-
-    <!-- Contract Information (if exists) -->
+<!-- Contract Information (if exists) -->
     @if($ticket->contract)
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Contract Information</h2>
@@ -653,7 +529,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-    <!-- Uploaded Documents (from dynamic file answers) -->
+<!-- Uploaded Documents (from dynamic file answers) -->
     @php
         $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file');
         $draftDoc = $ticket->getAnswer('draft_document');
@@ -708,7 +584,133 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
     </div>
 
-    <!-- Activity Log -->
+{{-- Dynamic Basic Answers (financial impact, payment type, doc title, etc) --}}
+        @php
+            $basicAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'basic' && $a->question?->QUEST_TYPE !== 'file');
+        @endphp
+        @if($basicAnswers->count() > 0)
+        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Basic Details</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach($basicAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div class="{{ in_array($answer->question?->QUEST_TYPE, ['text']) ? 'sm:col-span-2' : '' }}">
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                @if($answer->ANS_VALUE)
+                                    <flux:badge color="green">Yes</flux:badge>
+                                @else
+                                    <flux:badge color="neutral">No</flux:badge>
+                                @endif
+                            @elseif($answer->question?->QUEST_TYPE === 'select')
+                                @php
+                                    $option = collect($answer->question?->QUEST_OPTIONS ?? [])->firstWhere('value', $answer->ANS_VALUE);
+                                @endphp
+                                <flux:badge color="blue">{{ $option['label'] ?? $answer->ANS_VALUE }}</flux:badge>
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+{{-- Dynamic Document Details (form answers) --}}
+        @php
+            $formAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'form');
+        @endphp
+        @if($formAnswers->count() > 0)
+        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Document Details</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach($formAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div class="{{ $answer->question?->QUEST_TYPE === 'text' ? 'sm:col-span-2' : '' }}">
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                {{ $answer->ANS_VALUE ? 'Yes' : 'No' }}
+                            @elseif($answer->question?->QUEST_TYPE === 'date')
+                                {{ \Carbon\Carbon::parse($answer->ANS_VALUE)->format('d M Y') }}
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+{{-- Dynamic Supporting Answers (TAT compliance) --}}
+        @php
+            $supportingAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'supporting' && $a->question?->QUEST_TYPE !== 'file');
+        @endphp
+        @if($supportingAnswers->count() > 0)
+        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Supporting Information</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach($supportingAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
+                    <div>
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                        <p class="font-medium text-neutral-900 dark:text-white">
+                            @if($answer->question?->QUEST_TYPE === 'boolean')
+                                @if($answer->ANS_VALUE)
+                                    <flux:badge color="green">Yes</flux:badge>
+                                @else
+                                    <flux:badge color="neutral">No</flux:badge>
+                                @endif
+                            @else
+                                {{ $answer->ANS_VALUE }}
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+{{-- Finalization Checklist Answers --}}
+    @php
+        $finAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'finalization');
+    @endphp
+    @if($ticket->status?->LOV_VALUE === 'done' && $finAnswers->count() > 0)
+    <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Finalization Checklist</h2>
+        
+        <div class="space-y-3">
+            @foreach($finAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                @if($answer->question?->QUEST_TYPE === 'boolean')
+                <div class="flex items-start gap-3">
+                    @if($answer->ANS_VALUE)
+                        <flux:icon.check-circle class="size-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    @else
+                        <flux:icon.x-circle class="size-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    @endif
+                    <div>
+                        <p class="text-sm font-medium text-neutral-900 dark:text-white">{{ $answer->question->QUEST_LABEL }}</p>
+                        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $answer->ANS_VALUE ? 'Yes' : 'No' }}</p>
+                    </div>
+                </div>
+                @elseif($answer->ANS_VALUE)
+                <div class="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+                    <p class="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $answer->question->QUEST_LABEL }}:</p>
+                    <p class="text-sm text-neutral-900 dark:text-white whitespace-pre-wrap">{{ $answer->ANS_VALUE }}</p>
+                </div>
+                @endif
+            @endforeach
+        </div>
+    </div>
+    @endif
+
+<!-- Activity Log -->
     @php
         $allLogs = $ticket->activityLogs;
         if ($ticket->contract && $ticket->contract->activityLogs) {
@@ -736,7 +738,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-    <!-- Reject Modal -->
+<!-- Reject Modal -->
     <flux:modal name="reject-modal" :open="$showRejectModal" wire:model="showRejectModal">
         <form wire:submit="rejectTicket" class="space-y-6">
             <div>

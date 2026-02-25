@@ -6,6 +6,7 @@ use App\Models\DocumentType;
 use App\Models\FormQuestion;
 use App\Models\Ticket;
 use App\Models\TicketAnswer;
+use App\Models\User;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -155,6 +156,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function save(): void
     {
+        /** @var \App\Models\User $user */
         $user = auth()->user();
 
         if (! $user->hasAnyRole(['super-admin', 'legal'])) {
@@ -255,12 +257,16 @@ new #[Layout('components.layouts.app')] class extends Component
 
         // Log activity
         $this->ticket->activityLogs()->create([
-            'user_id' => $user->LGL_ROW_ID,
-            'action' => 'updated ticket details',
-            'metadata' => [
-                'updated_at' => now(),
+            'LOG_CAUSER_ID' => $user->LGL_ROW_ID,
+            'LOG_CAUSER_TYPE' => User::class,
+            'LOG_EVENT' => 'status_change',
+            'LOG_DESC' => 'Updated ticket details',
+            'LOG_PROPERTIES' => [
+                'ticket_number' => $this->ticket->TCKT_NO,
+                'status' => $this->ticket->status?->LOV_VALUE,
                 'updated_by' => $user->name,
             ],
+            'LOG_NAME' => 'ticket_activity',
         ]);
 
         session()->flash('success', 'Ticket updated successfully.');
