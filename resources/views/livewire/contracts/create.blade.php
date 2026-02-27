@@ -46,6 +46,30 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $this->DIV_ID = $user->DIV_ID;
         $this->DEPT_ID = $user->DEPT_ID;
+
+        // Initialize basic questions
+        foreach ($this->basicQuestions as $question) {
+            $this->dynamicAnswers[$question->QUEST_CODE] = '';
+        }
+
+        // Initialize supporting questions (non-file)
+        foreach ($this->supportingQuestions as $question) {
+            if ($question->QUEST_TYPE !== 'file') {
+                $this->dynamicAnswers[$question->QUEST_CODE] = '';
+            }
+        }
+    }
+
+    /**
+     * Hook when document_type is updated to initialize form-specific variables.
+     */
+    public function updatedDocumentType(): void
+    {
+        foreach ($this->formQuestions as $question) {
+            if (! isset($this->dynamicAnswers[$question->QUEST_CODE])) {
+                $this->dynamicAnswers[$question->QUEST_CODE] = '';
+            }
+        }
     }
 
     /**

@@ -91,7 +91,11 @@ new #[Layout('components.layouts.app')] class extends Component
         $query = Ticket::with(['division', 'department', 'creator', 'contract', 'status', 'documentType'])
             ->when($this->search, fn ($q) => $q->where(function ($q) {
                 $q->where('TCKT_NO', 'like', "%{$this->search}%")
-                    ->orWhere('TCKT_PROP_DOC_TITLE', 'like', "%{$this->search}%");
+                    ->orWhereHas('answers', function ($qA) {
+                        $qA->whereHas('question', function ($qQ) {
+                            $qQ->where('QUEST_CODE', 'proposed_document_title');
+                        })->where('ANS_VALUE', 'like', "%{$this->search}%");
+                    });
             }))
             ->when($this->statusFilter, fn ($q) => $q->whereHas('status', fn ($sq) => $sq->where('LOV_VALUE', $this->statusFilter)))
             ->when($this->divisionFilter, fn ($q) => $q->where('DIV_ID', $this->divisionFilter))
@@ -293,7 +297,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         </td>
                         <td class="px-4 py-3">
                             <div class="max-w-xs">
-                                <p class="truncate font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_PROP_DOC_TITLE }}</p>
+                                <p class="truncate font-medium text-neutral-900 dark:text-white">{{ $ticket->getAnswer('proposed_document_title') ?? '-' }}</p>
                                 <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $ticket->documentType->REF_DOC_TYPE_NAME }}</p>
                             </div>
                         </td>

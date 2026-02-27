@@ -43,6 +43,7 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
     private function getDynamicQuestionCodes(): Collection
     {
         return FormQuestion::active()
+            ->where('QUEST_CODE', '!=', 'proposed_document_title')
             ->ordered()
             ->get(['QUEST_CODE', 'QUEST_LABEL', 'QUEST_TYPE']);
     }
@@ -78,20 +79,21 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
                 $agingDisplay = $hours.' hours';
             }
 
-            // Build base row data
+            // Build row data as an indexed array to match headings and avoid key collisions
             $row = [
-                'Ticket Number' => $ticket->TCKT_NO,
-                'Document Type' => $ticket->document_type_label,
-                'Division' => $ticket->division?->REF_DIV_NAME ?? '-',
-                'Department' => $ticket->department?->REF_DEPT_NAME ?? '-',
-                'Created By' => $ticket->creator?->USER_FULLNAME ?? $ticket->creator?->name ?? '-',
-                'Created Date' => $ticket->TCKT_CREATED_DT->format('d/m/Y H:i'),
-                'Last Updated' => $ticket->TCKT_UPDATED_DT->format('d/m/Y H:i'),
-                'Status' => $ticket->status_label,
-                'Contract Status' => $ticket->contract?->status?->LOV_DISPLAY_NAME ?? '-',
-                'Process Started' => $ticket->TCKT_AGING_START_DT?->format('d/m/Y H:i') ?? '-',
-                'Process Ended' => $ticket->TCKT_AGING_END_DT?->format('d/m/Y H:i') ?? '-',
-                'Aging' => $agingDisplay,
+                $ticket->TCKT_NO,
+                $ticket->getAnswer('proposed_document_title') ?? '-',
+                $ticket->document_type_label,
+                $ticket->division?->REF_DIV_NAME ?? '-',
+                $ticket->department?->REF_DEPT_NAME ?? '-',
+                $ticket->creator?->USER_FULLNAME ?? $ticket->creator?->name ?? '-',
+                $ticket->TCKT_CREATED_DT->format('d/m/Y H:i'),
+                $ticket->TCKT_UPDATED_DT?->format('d/m/Y H:i') ?? '-',
+                $ticket->status_label,
+                $ticket->contract?->status?->LOV_DISPLAY_NAME ?? '-',
+                $ticket->TCKT_AGING_START_DT?->format('d/m/Y H:i') ?? '-',
+                $ticket->TCKT_AGING_END_DT?->format('d/m/Y H:i') ?? '-',
+                $agingDisplay,
             ];
 
             // Add dynamic question answers
@@ -104,18 +106,22 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
                 if ($question->QUEST_TYPE === 'boolean') {
                     $displayValue = $value !== null ? ($value ? 'Yes' : 'No') : '-';
                 } elseif ($question->QUEST_TYPE === 'date' && $value) {
-                    $displayValue = \Carbon\Carbon::parse($value)->format('d/m/Y');
+                    try {
+                        $displayValue = \Carbon\Carbon::parse($value)->format('d/m/Y');
+                    } catch (\Exception $e) {
+                        $displayValue = $value;
+                    }
                 } else {
                     $displayValue = $value ?? '-';
                 }
 
-                $row[$question->QUEST_LABEL] = $displayValue;
+                $row[] = $displayValue;
             }
 
             // Add contract info at end
-            $row['Contract Number'] = $ticket->contract?->CONTR_NO ?? '-';
-            $row['Rejection Reason'] = $ticket->TCKT_REJECT_REASON ?? '-';
-            $row['Termination Reason'] = $ticket->contract?->CONTR_TERMINATE_REASON ?? '-';
+            $row[] = $ticket->contract?->CONTR_NO ?? '-';
+            $row[] = $ticket->TCKT_REJECT_REASON ?? '-';
+            $row[] = $ticket->contract?->CONTR_TERMINATE_REASON ?? '-';
 
             return $row;
         });
@@ -127,6 +133,7 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
 
         $base = [
             'Ticket Number',
+            'Document Title',
             'Document Type',
             'Division',
             'Department',
@@ -180,8 +187,8 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
     {
         return [
             'A' => 18,  // Ticket Number
-            'B' => 40,  // Document Title
-            'C' => 20,  // Document Type
+            'B' => 45,  // Document Title
+            'C' => 25,  // Document Type
             'D' => 20,  // Division
             'E' => 20,  // Department
             'F' => 20,  // Created By

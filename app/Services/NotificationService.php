@@ -28,7 +28,7 @@ class NotificationService
 
         $data = [
             'ticket_number' => $ticket->TCKT_NO,
-            'proposed_document_title' => $ticket->TCKT_PROP_DOC_TITLE,
+            'proposed_document_title' => $ticket->getAnswer('proposed_document_title') ?? '-',
             'document_type' => $ticket->document_type_label,
             'creator_name' => $ticket->creator->USER_FULLNAME ?? $ticket->creator->name,
             'creator_email' => $ticket->creator->USER_EMAIL ?? $ticket->creator->email,
@@ -117,7 +117,7 @@ class NotificationService
 
         $data = [
             'ticket_number' => $ticket->TCKT_NO,
-            'proposed_document_title' => $ticket->TCKT_PROP_DOC_TITLE,
+            'proposed_document_title' => $ticket->getAnswer('proposed_document_title') ?? '-',
             'document_type' => $ticket->document_type_label,
             'old_status' => $this->getStatusLabel($oldStatus),
             'new_status' => $this->getStatusLabel($newStatus),
