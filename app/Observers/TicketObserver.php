@@ -4,12 +4,15 @@ namespace App\Observers;
 
 use App\Models\Setting;
 use App\Models\Ticket;
+use App\Services\LegalDocumentService;
 use App\Services\TicketService;
+use Illuminate\Support\Facades\Log;
 
 class TicketObserver
 {
     public function __construct(
-        private TicketService $ticketService
+        private TicketService $ticketService,
+        private LegalDocumentService $legalDocumentService,
     ) {}
 
     /**
@@ -29,6 +32,21 @@ class TicketObserver
 
         if ($now->hour >= $cutoffHour) {
             $ticket->TCKT_CREATED_DT = $now->addDay();
+        }
+    }
+
+    /**
+     * Handle the Ticket "created" event.
+     * Creates the document folder structure after the ticket is persisted.
+     */
+    public function created(Ticket $ticket): void
+    {
+        if ($ticket->TCKT_NO) {
+            try {
+                $this->legalDocumentService->createTicketFolders($ticket->TCKT_NO);
+            } catch (\Throwable $e) {
+                Log::error("Failed to create document folders for ticket {$ticket->TCKT_NO}: {$e->getMessage()}");
+            }
         }
     }
 }

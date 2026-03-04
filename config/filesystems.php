@@ -60,6 +60,13 @@ return [
             'report' => false,
         ],
 
+        'legal_docs' => [
+            'driver' => 'local',
+            'root' => env('LEGAL_DOCS_ROOT', storage_path('app/legal-docs')),
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

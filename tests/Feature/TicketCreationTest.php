@@ -14,8 +14,10 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     Storage::fake('public');
+    Storage::fake('legal_docs');
 
-    // Seed form questions so dynamic answers can be saved
+    // Seed form sections and questions so dynamic answers can be saved
+    $this->seed(\Database\Seeders\FormSectionSeeder::class);
     $this->seed(\Database\Seeders\FormQuestionSeeder::class);
 
     // Create divisions and departments
@@ -47,8 +49,8 @@ test('superadmin can create ticket', function () {
         ->set('dynamicAnswers.is_auto_renewal', '0')
         ->set('dynamicAnswers.agreement_end_date', now()->addYears(2)->format('Y-m-d'))
         ->set('dynamicAnswers.tat_legal_compliance', '1')
-        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicFiles.mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles.approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 
@@ -96,8 +98,8 @@ test('user with tickets.create permission can create ticket', function () {
         ->set('dynamicAnswers.kuasa_start_date', now()->addDays(5)->format('Y-m-d'))
         ->set('dynamicAnswers.kuasa_end_date', now()->addMonths(6)->format('Y-m-d'))
         ->set('dynamicAnswers.tat_legal_compliance', '1')
-        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicFiles.mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles.approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 
@@ -147,8 +149,8 @@ test('legal role user can create ticket', function () {
         ->set('dynamicAnswers.nda_renewal_period', '1 year')
         ->set('dynamicAnswers.nda_renewal_notification_days', 30)
         ->set('dynamicAnswers.tat_legal_compliance', '0')
-        ->set('dynamicFiles_mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
-        ->set('dynamicFiles_approval_document', UploadedFile::fake()->image('approval.jpg'))
+        ->set('dynamicFiles.mandatory_documents', [UploadedFile::fake()->create('doc.pdf')])
+        ->set('dynamicFiles.approval_document', UploadedFile::fake()->image('approval.jpg'))
         ->call('save')
         ->assertHasNoErrors();
 

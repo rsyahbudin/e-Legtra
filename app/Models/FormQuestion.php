@@ -64,6 +64,14 @@ class FormQuestion extends Model
     }
 
     /**
+     * Get the section this question belongs to.
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(FormSection::class, 'QUEST_SECTION', 'SECT_CODE');
+    }
+
+    /**
      * Scope: only active questions.
      */
     public function scopeActive(Builder $query): Builder

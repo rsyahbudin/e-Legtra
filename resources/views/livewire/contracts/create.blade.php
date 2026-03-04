@@ -4,8 +4,10 @@ use App\Models\Department;
 use App\Models\Division;
 use App\Models\DocumentType;
 use App\Models\FormQuestion;
+use App\Models\FormSection;
 use App\Models\Ticket;
 use App\Models\TicketAnswer;
+use App\Services\LegalDocumentService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -29,11 +31,8 @@ new #[Layout('components.layouts.app')] class extends Component
     public array $dynamicAnswers = [];
 
     // Dynamic file uploads (keyed by question code)
-    public $dynamicFiles_draft_document;
-
-    public $dynamicFiles_mandatory_documents = [];
-
-    public $dynamicFiles_approval_document;
+    // Uses an array so new file-type questions need zero code changes.
+    public array $dynamicFiles = [];
 
     public function mount(): void
     {
@@ -47,15 +46,15 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->DIV_ID = $user->DIV_ID;
         $this->DEPT_ID = $user->DEPT_ID;
 
-        // Initialize basic questions
-        foreach ($this->basicQuestions as $question) {
-            $this->dynamicAnswers[$question->QUEST_CODE] = '';
-        }
-
-        // Initialize supporting questions (non-file)
-        foreach ($this->supportingQuestions as $question) {
-            if ($question->QUEST_TYPE !== 'file') {
-                $this->dynamicAnswers[$question->QUEST_CODE] = '';
+        // Initialize all non-file question answers for static sections (basic, supporting)
+        foreach ($this->sections as $section) {
+            if ($section->SECT_CODE === 'form') {
+                continue; // form questions are initialized in updatedDocumentType
+            }
+            foreach ($this->getQuestionsForSection($section) as $question) {
+                if ($question->QUEST_TYPE !== 'file') {
+                    $this->dynamicAnswers[$question->QUEST_CODE] = '';
+                }
             }
         }
     }
@@ -65,7 +64,7 @@ new #[Layout('components.layouts.app')] class extends Component
      */
     public function updatedDocumentType(): void
     {
-        foreach ($this->formQuestions as $question) {
+        foreach ($this->getQuestionsForSection($this->sections->firstWhere('SECT_CODE', 'form')) as $question) {
             if (! isset($this->dynamicAnswers[$question->QUEST_CODE])) {
                 $this->dynamicAnswers[$question->QUEST_CODE] = '';
             }
@@ -73,45 +72,41 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     /**
-     * Get "basic" section questions (financial impact, payment type, doc title, etc).
+     * Get all active sections visible on create form, ordered.
      */
-    public function getBasicQuestionsProperty()
+    public function getSectionsProperty()
     {
-        return FormQuestion::active()
-            ->forSection('basic')
-            ->forDocType(null)
+        return FormSection::active()
+            ->forCreate()
             ->ordered()
             ->get();
     }
 
     /**
-     * Get doc-type-specific "form" questions.
+     * Get questions for a given section, respecting doc-type filtering.
      */
-    public function getFormQuestionsProperty()
+    public function getQuestionsForSection(?FormSection $section)
     {
-        if (! $this->document_type) {
+        if (! $section) {
             return collect();
         }
 
-        $docTypeId = DocumentType::getIdByCode($this->document_type);
+        $query = FormQuestion::active()
+            ->forSection($section->SECT_CODE)
+            ->ordered();
 
-        return FormQuestion::active()
-            ->forSection('form')
-            ->forDocType($docTypeId)
-            ->ordered()
-            ->get();
-    }
+        // 'form' section is doc-type-specific
+        if ($section->SECT_CODE === 'form') {
+            if (! $this->document_type) {
+                return collect();
+            }
+            $docTypeId = DocumentType::getIdByCode($this->document_type);
+            $query->forDocType($docTypeId);
+        } else {
+            $query->forDocType(null);
+        }
 
-    /**
-     * Get "supporting" section questions (TAT, mandatory docs, approval).
-     */
-    public function getSupportingQuestionsProperty()
-    {
-        return FormQuestion::active()
-            ->forSection('supporting')
-            ->forDocType(null)
-            ->ordered()
-            ->get();
+        return $query->get();
     }
 
     public function getDivisionsProperty()
@@ -167,10 +162,10 @@ new #[Layout('components.layouts.app')] class extends Component
             ];
 
             // Dynamic question validation for all sections
-            $allQuestions = collect()
-                ->merge($this->basicQuestions)
-                ->merge($this->formQuestions)
-                ->merge($this->supportingQuestions);
+            $allQuestions = collect();
+            foreach ($this->sections as $section) {
+                $allQuestions = $allQuestions->merge($this->getQuestionsForSection($section));
+            }
 
             foreach ($allQuestions as $question) {
                 if ($question->QUEST_TYPE === 'file') {
@@ -197,10 +192,35 @@ new #[Layout('components.layouts.app')] class extends Component
                 $rules["dynamicAnswers.{$question->QUEST_CODE}"] = $fieldRules;
             }
 
-            // File field validation
-            $rules['dynamicFiles_draft_document'] = ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'];
-            $rules['dynamicFiles_mandatory_documents.*'] = ['nullable', 'file', 'max:10240'];
-            $rules['dynamicFiles_approval_document'] = ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
+            // Dynamic file field validation — built from FormQuestion metadata
+            $fileQuestions = $allQuestions->where('QUEST_TYPE', 'file');
+            foreach ($fileQuestions as $fileQuestion) {
+                $code = $fileQuestion->QUEST_CODE;
+                $fileRules = [];
+                $fileRules[] = $fileQuestion->QUEST_IS_REQUIRED ? 'required' : 'nullable';
+                $fileRules[] = 'file';
+
+                if ($fileQuestion->QUEST_ACCEPT) {
+                    // Convert accept string (e.g. '.pdf,.doc,.docx') to mimes rule
+                    $mimes = collect(explode(',', $fileQuestion->QUEST_ACCEPT))
+                        ->map(fn ($ext) => ltrim(trim($ext), '.'))
+                        ->filter()
+                        ->implode(',');
+                    if ($mimes) {
+                        $fileRules[] = "mimes:{$mimes}";
+                    }
+                }
+
+                $maxSize = $fileQuestion->QUEST_MAX_SIZE_KB ?? 10240;
+                $fileRules[] = "max:{$maxSize}";
+
+                if ($fileQuestion->QUEST_IS_MULTIPLE) {
+                    $rules["dynamicFiles.{$code}"] = ['nullable', 'array'];
+                    $rules["dynamicFiles.{$code}.*"] = $fileRules;
+                } else {
+                    $rules["dynamicFiles.{$code}"] = $fileRules;
+                }
+            }
 
             $this->validate($rules);
 
@@ -232,10 +252,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 ]);
             }
 
-            // Handle file uploads — store paths as TicketAnswer values
-            $this->saveFileAnswer($ticket, 'draft_document', $this->dynamicFiles_draft_document);
-            $this->saveMultipleFileAnswer($ticket, 'mandatory_documents', $this->dynamicFiles_mandatory_documents);
-            $this->saveFileAnswer($ticket, 'approval_document', $this->dynamicFiles_approval_document);
+            // Handle file uploads dynamically — iterate all file-type questions
+            $this->saveFileAnswers($ticket, $allQuestions->where('QUEST_TYPE', 'file'));
 
             // Send notification
             try {
@@ -263,55 +281,44 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     /**
-     * Save a single file upload as a TicketAnswer.
+     * Save all file-type question uploads to the legal_docs disk.
+     * Handles both single and multiple file uploads dynamically.
+     * New file-type questions added to the database require zero code changes.
      */
-    private function saveFileAnswer(Ticket $ticket, string $questionCode, $file): void
+    private function saveFileAnswers(Ticket $ticket, $fileQuestions): void
     {
-        if (! $file) {
-            return;
+        $documentService = app(LegalDocumentService::class);
+
+        foreach ($fileQuestions as $question) {
+            $fileData = $this->dynamicFiles[$question->QUEST_CODE] ?? null;
+
+            if (! $fileData) {
+                continue;
+            }
+
+            if ($question->QUEST_IS_MULTIPLE && is_array($fileData)) {
+                // Multiple files — store as JSON array of generated paths (no original names)
+                $paths = [];
+                foreach ($fileData as $file) {
+                    $paths[] = $documentService->uploadDocument($file, $ticket->TCKT_NO, 'request');
+                }
+
+                TicketAnswer::create([
+                    'ANS_TICKET_ID' => $ticket->LGL_ROW_ID,
+                    'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
+                    'ANS_VALUE' => json_encode($paths),
+                ]);
+            } else {
+                // Single file
+                $path = $documentService->uploadDocument($fileData, $ticket->TCKT_NO, 'request');
+
+                TicketAnswer::create([
+                    'ANS_TICKET_ID' => $ticket->LGL_ROW_ID,
+                    'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
+                    'ANS_VALUE' => $path,
+                ]);
+            }
         }
-
-        $question = FormQuestion::where('QUEST_CODE', $questionCode)->first();
-        if (! $question) {
-            return;
-        }
-
-        $path = $file->store("tickets/{$ticket->LGL_ROW_ID}/{$questionCode}", 'public');
-
-        TicketAnswer::create([
-            'ANS_TICKET_ID' => $ticket->LGL_ROW_ID,
-            'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
-            'ANS_VALUE' => $path,
-        ]);
-    }
-
-    /**
-     * Save multiple file uploads as a JSON TicketAnswer.
-     */
-    private function saveMultipleFileAnswer(Ticket $ticket, string $questionCode, $files): void
-    {
-        if (! $files || count($files) === 0) {
-            return;
-        }
-
-        $question = FormQuestion::where('QUEST_CODE', $questionCode)->first();
-        if (! $question) {
-            return;
-        }
-
-        $paths = [];
-        foreach ($files as $file) {
-            $paths[] = [
-                'name' => $file->getClientOriginalName(),
-                'path' => $file->store("tickets/{$ticket->LGL_ROW_ID}/{$questionCode}", 'public'),
-            ];
-        }
-
-        TicketAnswer::create([
-            'ANS_TICKET_ID' => $ticket->LGL_ROW_ID,
-            'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
-            'ANS_VALUE' => json_encode($paths),
-        ]);
     }
 }; ?>
 
@@ -328,157 +335,120 @@ new #[Layout('components.layouts.app')] class extends Component
 
     <!-- Form -->
     <form wire:submit="save" class="space-y-6">
-        <!-- 1. Basic Information (dynamic from 'basic' section + structural fields) -->
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">1. Basic Information</h2>
-            
-            <div class="grid gap-4 sm:grid-cols-2">
-                <!-- Division (readonly, auto-filled — structural) -->
-                <flux:field>
-                    <flux:label>User Directorate (Division)</flux:label>
-                    <flux:select wire:model="DIV_ID" name="DIV_ID" disabled>
-                        <option value="">-- Select Division --</option>
-                        @foreach($this->divisions as $division)
-                        <option value="{{ $division->LGL_ROW_ID }}">{{ $division->REF_DIV_NAME }}</option>
-                        @endforeach
-                    </flux:select>
-                    <flux:description>Auto-filled from your account</flux:description>
-                    <flux:error name="DIV_ID" />
-                </flux:field>
+        @foreach($this->sections as $sectionIndex => $section)
+            @php
+                $sectionQuestions = $this->getQuestionsForSection($section);
+                $isFormSection = $section->SECT_CODE === 'form';
+                $isSupportingSection = $section->SECT_CODE === 'supporting';
+                $isBasicSection = $section->SECT_CODE === 'basic';
 
-                <flux:field>
-                    <flux:label>Department</flux:label>
-                    <flux:select wire:model="DEPT_ID" name="DEPT_ID" disabled>
-                        <option value="">-- Select Department --</option>
-                        @foreach($this->departments as $dept)
-                        <option value="{{ $dept->LGL_ROW_ID }}">{{ $dept->REF_DEPT_NAME }}</option>
-                        @endforeach
-                    </flux:select>
-                    <flux:description>Auto-filled from your account</flux:description>
-                    <flux:error name="DEPT_ID" />
-                </flux:field>
+                // Form & supporting sections only show after doc type is selected
+                $shouldShow = $isBasicSection || $this->document_type;
+                // Form section only shows when it has questions
+                if ($isFormSection && $sectionQuestions->count() === 0) {
+                    $shouldShow = false;
+                }
+            @endphp
 
-                <!-- Dynamic basic questions -->
-                @foreach($this->basicQuestions as $question)
-                    @if($this->isDependencyMet($question))
-                    <flux:field class="{{ $question->QUEST_WIDTH === 'full' ? 'sm:col-span-2' : '' }}" wire:key="basic-{{ $question->QUEST_CODE }}">
-                        <flux:label>{{ $question->QUEST_LABEL }} @if($question->QUEST_IS_REQUIRED)<span class="text-red-500">*</span>@endif</flux:label>
-                        
-                        @if($question->QUEST_TYPE === 'boolean')
-                            <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
-                                <flux:radio value="1" label="Yes" />
-                                <flux:radio value="0" label="No" />
-                            </flux:radio.group>
-                        @elseif($question->QUEST_TYPE === 'select')
-                            <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
-                                @foreach($question->QUEST_OPTIONS ?? [] as $opt)
-                                <flux:radio value="{{ $opt['value'] }}" label="{{ $opt['label'] }}" />
-                                @endforeach
-                            </flux:radio.group>
-                        @elseif($question->QUEST_TYPE === 'file')
-                            <input type="file" wire:model="dynamicFiles_{{ $question->QUEST_CODE }}" {{ $question->QUEST_ACCEPT ? 'accept='.$question->QUEST_ACCEPT : '' }} {{ $question->QUEST_IS_MULTIPLE ? 'multiple' : '' }} class="block w-full text-sm text-neutral-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 dark:text-neutral-400 dark:file:bg-blue-900/30 dark:file:text-blue-400" />
-                            <div wire:loading wire:target="dynamicFiles_{{ $question->QUEST_CODE }}" class="mt-2 text-sm text-blue-600">Uploading...</div>
-                        @else
-                            <flux:input wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
-                        @endif
+            @if($shouldShow)
+            <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900" wire:key="section-{{ $section->SECT_CODE }}">
+                <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">{{ $sectionIndex + 1 }}. {{ $section->SECT_LABEL }}</h2>
+                @if($section->SECT_DESCRIPTION)
+                    <p class="mb-4 text-sm text-neutral-500 dark:text-neutral-400">{{ $section->SECT_DESCRIPTION }}</p>
+                @endif
 
-                        @if($question->QUEST_DESCRIPTION)
-                            <flux:description>{{ $question->QUEST_DESCRIPTION }}</flux:description>
-                        @endif
-                        <flux:error name="dynamicAnswers.{{ $question->QUEST_CODE }}" />
-                    </flux:field>
-                    @endif
-                @endforeach
-
-                <!-- Document Type (structural — drives dynamic questions) -->
-                <flux:field class="sm:col-span-2">
-                    <flux:label>Document Type *</flux:label>
-                    <flux:select wire:model.live="document_type" required>
-                        <option value="">Select Document Type</option>
-                        @foreach($this->documentTypes as $docType)
-                        <option value="{{ $docType->code }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
-                        @endforeach
-                    </flux:select>
-                    <flux:error name="document_type" />
-                </flux:field>
-            </div>
-        </div>
-
-        <!-- 2. Document Details (dynamic from 'form' section, doc-type-specific) -->
-        @if($this->formQuestions->count() > 0)
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">2. Document Details</h2>
-            
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($this->formQuestions as $question)
-                    @if($this->isDependencyMet($question))
-                    <flux:field class="{{ $question->QUEST_WIDTH === 'full' ? 'sm:col-span-2' : '' }}" wire:key="form-{{ $question->QUEST_CODE }}">
-                        <flux:label>{{ $question->QUEST_LABEL }} @if($question->QUEST_IS_REQUIRED)<span class="text-red-500">*</span>@endif</flux:label>
-                        
-                        @if($question->QUEST_TYPE === 'boolean')
-                            <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
-                                <flux:radio value="1" label="Yes" />
-                                <flux:radio value="0" label="No" />
-                            </flux:radio.group>
-                        @elseif($question->QUEST_TYPE === 'date')
-                            <flux:input type="date" wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" />
-                        @elseif($question->QUEST_TYPE === 'number')
-                            <flux:input type="number" wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
-                        @elseif($question->QUEST_TYPE === 'select')
-                            <flux:select wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}">
-                                <option value="">Select...</option>
-                                @foreach($question->QUEST_OPTIONS ?? [] as $opt)
-                                <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                <div class="grid gap-4 {{ $isSupportingSection ? '' : 'sm:grid-cols-2' }}">
+                    {{-- Structural fields only in basic section --}}
+                    @if($isBasicSection)
+                        <!-- Division (readonly, auto-filled — structural) -->
+                        <flux:field>
+                            <flux:label>User Directorate (Division)</flux:label>
+                            <flux:select wire:model="DIV_ID" name="DIV_ID" disabled>
+                                <option value="">-- Select Division --</option>
+                                @foreach($this->divisions as $division)
+                                <option value="{{ $division->LGL_ROW_ID }}">{{ $division->REF_DIV_NAME }}</option>
                                 @endforeach
                             </flux:select>
-                        @else
-                            <flux:input wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
-                        @endif
+                            <flux:description>Auto-filled from your account</flux:description>
+                            <flux:error name="DIV_ID" />
+                        </flux:field>
 
-                        @if($question->QUEST_DESCRIPTION)
-                            <flux:description>{{ $question->QUEST_DESCRIPTION }}</flux:description>
-                        @endif
-                        <flux:error name="dynamicAnswers.{{ $question->QUEST_CODE }}" />
-                    </flux:field>
+                        <flux:field>
+                            <flux:label>Department</flux:label>
+                            <flux:select wire:model="DEPT_ID" name="DEPT_ID" disabled>
+                                <option value="">-- Select Department --</option>
+                                @foreach($this->departments as $dept)
+                                <option value="{{ $dept->LGL_ROW_ID }}">{{ $dept->REF_DEPT_NAME }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:description>Auto-filled from your account</flux:description>
+                            <flux:error name="DEPT_ID" />
+                        </flux:field>
                     @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
 
-        <!-- 3. Supporting Documents (dynamic from 'supporting' section) -->
-        @if($this->document_type)
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">{{ $this->formQuestions->count() > 0 ? '3' : '2' }}. Supporting Documents</h2>
-            
-            <div class="grid gap-4">
-                @foreach($this->supportingQuestions as $question)
-                    @if($this->isDependencyMet($question))
-                    <flux:field wire:key="support-{{ $question->QUEST_CODE }}">
-                        <flux:label>{{ $question->QUEST_LABEL }} @if($question->QUEST_IS_REQUIRED)<span class="text-red-500">*</span>@endif</flux:label>
-                        
-                        @if($question->QUEST_TYPE === 'boolean')
-                            <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
-                                <flux:radio value="1" label="Yes" />
-                                <flux:radio value="0" label="No" />
-                            </flux:radio.group>
-                        @elseif($question->QUEST_TYPE === 'file')
-                            <input type="file" wire:model="dynamicFiles_{{ $question->QUEST_CODE }}" {{ $question->QUEST_ACCEPT ? 'accept='.$question->QUEST_ACCEPT : '' }} {{ $question->QUEST_IS_MULTIPLE ? 'multiple' : '' }} class="block w-full text-sm text-neutral-500 file:mr-4 file:rounded-lg file:border-0 file:bg-purple-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-purple-700 hover:file:bg-purple-100 dark:text-neutral-400 dark:file:bg-purple-900/30 dark:file:text-purple-400" {{ $question->QUEST_IS_REQUIRED ? 'required' : '' }} />
-                            <div wire:loading wire:target="dynamicFiles_{{ $question->QUEST_CODE }}" class="mt-2 text-sm text-purple-600">Uploading...</div>
-                        @else
-                            <flux:input wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
-                        @endif
+                    {{-- Dynamic questions for this section --}}
+                    @foreach($sectionQuestions as $question)
+                        @if($this->isDependencyMet($question))
+                        <flux:field class="{{ $question->QUEST_WIDTH === 'full' ? 'sm:col-span-2' : '' }}" wire:key="q-{{ $section->SECT_CODE }}-{{ $question->QUEST_CODE }}">
+                            <flux:label>{{ $question->QUEST_LABEL }} @if($question->QUEST_IS_REQUIRED)<span class="text-red-500">*</span>@endif</flux:label>
 
-                        @if($question->QUEST_DESCRIPTION)
-                            <flux:description>{{ $question->QUEST_DESCRIPTION }}</flux:description>
+                            @if($question->QUEST_TYPE === 'boolean')
+                                <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
+                                    <flux:radio value="1" label="Yes" />
+                                    <flux:radio value="0" label="No" />
+                                </flux:radio.group>
+                            @elseif($question->QUEST_TYPE === 'select')
+                                @if($isBasicSection)
+                                    <flux:radio.group wire:model.live="dynamicAnswers.{{ $question->QUEST_CODE }}" variant="segmented">
+                                        @foreach($question->QUEST_OPTIONS ?? [] as $opt)
+                                        <flux:radio value="{{ $opt['value'] }}" label="{{ $opt['label'] }}" />
+                                        @endforeach
+                                    </flux:radio.group>
+                                @else
+                                    <flux:select wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}">
+                                        <option value="">Select...</option>
+                                        @foreach($question->QUEST_OPTIONS ?? [] as $opt)
+                                        <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                                        @endforeach
+                                    </flux:select>
+                                @endif
+                            @elseif($question->QUEST_TYPE === 'date')
+                                <flux:input type="date" wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" />
+                            @elseif($question->QUEST_TYPE === 'number')
+                                <flux:input type="number" wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
+                            @elseif($question->QUEST_TYPE === 'file')
+                                <input type="file" wire:model="dynamicFiles.{{ $question->QUEST_CODE }}" {{ $question->QUEST_ACCEPT ? 'accept='.$question->QUEST_ACCEPT : '' }} {{ $question->QUEST_IS_MULTIPLE ? 'multiple' : '' }} class="block w-full text-sm text-neutral-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 dark:text-neutral-400 dark:file:bg-blue-900/30 dark:file:text-blue-400" />
+                                <div wire:loading wire:target="dynamicFiles.{{ $question->QUEST_CODE }}" class="mt-2 text-sm text-blue-600">Uploading...</div>
+                            @else
+                                <flux:input wire:model="dynamicAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
+                            @endif
+
+                            @if($question->QUEST_DESCRIPTION)
+                                <flux:description>{{ $question->QUEST_DESCRIPTION }}</flux:description>
+                            @endif
+                            <flux:error name="dynamicAnswers.{{ $question->QUEST_CODE }}" />
+                            <flux:error name="dynamicFiles.{{ $question->QUEST_CODE }}" />
+                        </flux:field>
                         @endif
-                        <flux:error name="dynamicFiles_{{ $question->QUEST_CODE }}" />
-                    </flux:field>
+                    @endforeach
+
+                    {{-- Document Type selector at end of basic section --}}
+                    @if($isBasicSection)
+                        <flux:field class="sm:col-span-2">
+                            <flux:label>Document Type *</flux:label>
+                            <flux:select wire:model.live="document_type" required>
+                                <option value="">Select Document Type</option>
+                                @foreach($this->documentTypes as $docType)
+                                <option value="{{ $docType->code }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="document_type" />
+                        </flux:field>
                     @endif
-                @endforeach
+                </div>
             </div>
-        </div>
-        @endif
+            @endif
+        @endforeach
 
         <!-- Actions -->
         <div class="flex items-center justify-end gap-3">

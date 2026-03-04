@@ -395,7 +395,7 @@ new #[Layout('components.layouts.app')] class extends Component
     @endif
 
     <!-- Contract Statistics Cards (shown for both legal and regular users) -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <!-- Total Contracts -->
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
             <div class="flex items-center gap-4">

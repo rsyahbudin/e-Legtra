@@ -48,6 +48,16 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('permission:tickets.edit')
         ->name('tickets.edit');
 
+    // Ticket Document Preview & Download
+    Route::middleware('permission:tickets.view')->prefix('tickets/{ticketNumber}/documents')->group(function () {
+        Route::get('preview/{path}', [\App\Http\Controllers\TicketDocumentController::class, 'preview'])
+            ->where('path', '.*')
+            ->name('tickets.documents.preview');
+        Route::get('download/{path}', [\App\Http\Controllers\TicketDocumentController::class, 'download'])
+            ->where('path', '.*')
+            ->name('tickets.documents.download');
+    });
+
     // Contract Repository (Asset View)
     Volt::route('contracts', 'contracts.repository')
         ->middleware('permission:contracts.view')
@@ -110,4 +120,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Volt::route('email-templates', 'admin.email-templates')
         ->middleware('permission:email_templates.edit')
         ->name('admin.email-templates');
+});
+
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'csrf_token' => csrf_token(),
+    ]);
 });

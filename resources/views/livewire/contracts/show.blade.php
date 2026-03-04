@@ -529,153 +529,190 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-<!-- Uploaded Documents (from dynamic file answers) -->
+<!-- Uploaded Documents (dynamic from file-type question answers) -->
     @php
-        $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file');
-        $draftDoc = $ticket->getAnswer('draft_document');
-        $mandatoryDocs = $ticket->getAnswer('mandatory_documents');
-        $mandatoryDocsArray = $mandatoryDocs ? json_decode($mandatoryDocs, true) : null;
-        $approvalDoc = $ticket->getAnswer('approval_document');
+        $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file' && $a->ANS_VALUE);
     @endphp
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Uploaded Documents</h2>
-        
-        <div class="space-y-4">
-            @if($draftDoc)
-            <div>
-                <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Draft Document</p>
-                <a href="{{ Storage::url($draftDoc) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
-                    <flux:icon name="document-text" class="h-4 w-4" />
-                    <span>Download Draft</span>
-                    <flux:icon name="arrow-down-tray" class="h-4 w-4" />
-                </a>
-            </div>
-            @endif
 
-            @if($mandatoryDocsArray && count($mandatoryDocsArray) > 0)
-            <div>
-                <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Mandatory Documents ({{ count($mandatoryDocsArray) }} files)</p>
-                <div class="space-y-2">
-                    @foreach($mandatoryDocsArray as $index => $doc)
-                    <a href="{{ Storage::url($doc['path']) }}" download target="_blank" class="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-sm text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50">
-                        <flux:icon name="document" class="h-4 w-4" />
-                        <span class="flex-1">{{ $doc['name'] }}</span>
-                        <flux:icon name="arrow-down-tray" class="h-4 w-4" />
-                    </a>
+        @if($fileAnswers->count() > 0)
+        <div class="space-y-4" x-data="{ previewImage: null }">
+            @foreach($fileAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                @php
+                    $isMultiple = $answer->question?->QUEST_IS_MULTIPLE;
+                    $label = $answer->question?->QUEST_LABEL ?? 'Document';
+                @endphp
+
+                <div>
+                    <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ $label }}</p>
+
+                    @if($isMultiple)
+                        {{-- Multiple files stored as JSON array of paths --}}
+                        @php
+                            $rawFiles = json_decode($answer->ANS_VALUE, true) ?? [];
+                            // Normalize: support both string paths and legacy {name, path} objects
+                            $filePaths = collect($rawFiles)->map(fn ($f) => is_array($f) ? ($f['path'] ?? '') : $f)->filter()->values();
+                        @endphp
+                        @if($filePaths->count() > 0)
+                        <div class="space-y-2">
+                            @foreach($filePaths as $filePath)
+                                @php
+                                    $filename = basename($filePath);
+                                    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                                    $isPdf = $ext === 'pdf';
+                                    $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                                    $previewUrl = route('tickets.documents.preview', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $filename]);
+                                    $downloadUrl = route('tickets.documents.download', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $filename]);
+                                @endphp
+                                <div class="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        @if($isPdf)
+                                            <flux:icon name="document-text" class="h-5 w-5 flex-shrink-0 text-red-500" />
+                                        @elseif($isImage)
+                                            <flux:icon name="photo" class="h-5 w-5 flex-shrink-0 text-green-500" />
+                                        @else
+                                            <flux:icon name="document" class="h-5 w-5 flex-shrink-0 text-neutral-500" />
+                                        @endif
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-medium text-neutral-900 dark:text-white">{{ $filename }}</p>
+                                            <p class="text-xs uppercase text-neutral-500 dark:text-neutral-400">{{ $ext }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        @if($isPdf)
+                                            <a href="{{ $previewUrl }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                                                <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                                            </a>
+                                        @elseif($isImage)
+                                            <button @click="previewImage = '{{ $previewUrl }}'" class="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50">
+                                                <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                                            </button>
+                                        @endif
+                                        <a href="{{ $downloadUrl }}" class="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600">
+                                            <flux:icon name="arrow-down-tray" class="h-3.5 w-3.5" /> Download
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @endif
+                    @else
+                        {{-- Single file stored as path string --}}
+                        @php
+                            $filename = basename($answer->ANS_VALUE);
+                            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                            $isPdf = $ext === 'pdf';
+                            $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                            $previewUrl = route('tickets.documents.preview', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $filename]);
+                            $downloadUrl = route('tickets.documents.download', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $filename]);
+                        @endphp
+                        <div class="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+                            <div class="flex items-center gap-3 min-w-0">
+                                @if($isPdf)
+                                    <flux:icon name="document-text" class="h-5 w-5 flex-shrink-0 text-red-500" />
+                                @elseif($isImage)
+                                    <flux:icon name="photo" class="h-5 w-5 flex-shrink-0 text-green-500" />
+                                @else
+                                    <flux:icon name="document" class="h-5 w-5 flex-shrink-0 text-neutral-500" />
+                                @endif
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium text-neutral-900 dark:text-white">{{ $filename }}</p>
+                                    <p class="text-xs uppercase text-neutral-500 dark:text-neutral-400">{{ $ext }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                @if($isPdf)
+                                    <a href="{{ $previewUrl }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                                        <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                                    </a>
+                                @elseif($isImage)
+                                    <button @click="previewImage = '{{ $previewUrl }}'" class="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50">
+                                        <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                                    </button>
+                                @endif
+                                <a href="{{ $downloadUrl }}" class="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600">
+                                    <flux:icon name="arrow-down-tray" class="h-3.5 w-3.5" /> Download
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endforeach
+
+            {{-- Image Preview Modal (Alpine.js) --}}
+            <div x-show="previewImage" x-cloak
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @click.self="previewImage = null"
+                 @keydown.escape.window="previewImage = null"
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                <div class="relative max-h-[90vh] max-w-4xl">
+                    <button @click="previewImage = null"
+                            class="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-lg hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700">
+                        <flux:icon name="x-mark" class="h-5 w-5" />
+                    </button>
+                    <img :src="previewImage" alt="Document Preview"
+                         class="max-h-[85vh] rounded-lg object-contain shadow-2xl" />
+                </div>
+            </div>
+        </div>
+        @else
+        <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">No uploaded documents</p>
+        @endif
+    </div>
+
+{{-- Dynamic Answer Sections (driven by FormSection table) --}}
+        @php
+            $detailSections = \App\Models\FormSection::active()->forDetail()->ordered()->get();
+        @endphp
+        @foreach($detailSections as $detailSection)
+            @php
+                $sectionAnswers = $ticket->answers->filter(fn ($a) =>
+                    $a->question?->QUEST_SECTION === $detailSection->SECT_CODE
+                    && $a->question?->QUEST_TYPE !== 'file'
+                    && $a->ANS_VALUE !== null
+                    && $a->ANS_VALUE !== ''
+                );
+            @endphp
+            @if($sectionAnswers->count() > 0)
+            <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+                <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">{{ $detailSection->SECT_LABEL }}</h2>
+                @if($detailSection->SECT_DESCRIPTION)
+                    <p class="mb-4 text-sm text-neutral-500 dark:text-neutral-400">{{ $detailSection->SECT_DESCRIPTION }}</p>
+                @endif
+                <div class="grid gap-4 sm:grid-cols-2">
+                    @foreach($sectionAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
+                        <div class="{{ $answer->question?->QUEST_WIDTH === 'full' ? 'sm:col-span-2' : '' }}">
+                            <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
+                            <p class="font-medium text-neutral-900 dark:text-white">
+                                @if($answer->question?->QUEST_TYPE === 'boolean')
+                                    @if($answer->ANS_VALUE)
+                                        <flux:badge color="green">Yes</flux:badge>
+                                    @else
+                                        <flux:badge color="neutral">No</flux:badge>
+                                    @endif
+                                @elseif($answer->question?->QUEST_TYPE === 'select')
+                                    @php
+                                        $option = collect($answer->question?->QUEST_OPTIONS ?? [])->firstWhere('value', $answer->ANS_VALUE);
+                                    @endphp
+                                    <flux:badge color="blue">{{ $option['label'] ?? $answer->ANS_VALUE }}</flux:badge>
+                                @elseif($answer->question?->QUEST_TYPE === 'date')
+                                    {{ \Carbon\Carbon::parse($answer->ANS_VALUE)->format('d M Y') }}
+                                @else
+                                    {{ $answer->ANS_VALUE }}
+                                @endif
+                            </p>
+                        </div>
                     @endforeach
                 </div>
             </div>
             @endif
-
-            @if($approvalDoc)
-            <div>
-                <p class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Approval Document</p>
-                <a href="{{ Storage::url($approvalDoc) }}" download target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50">
-                    <flux:icon name="document-check" class="h-4 w-4" />
-                    <span>Download Approval</span>
-                    <flux:icon name="arrow-down-tray" class="h-4 w-4" />
-                </a>
-            </div>
-            @endif
-
-            @if(!$draftDoc && !$mandatoryDocsArray && !$approvalDoc)
-            <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">No uploaded documents</p>
-            @endif
-        </div>
-    </div>
-
-{{-- Dynamic Basic Answers (financial impact, payment type, doc title, etc) --}}
-        @php
-            $basicAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'basic' && $a->question?->QUEST_TYPE !== 'file');
-        @endphp
-        @if($basicAnswers->count() > 0)
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Basic Details</h2>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($basicAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div class="{{ in_array($answer->question?->QUEST_TYPE, ['text']) ? 'sm:col-span-2' : '' }}">
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                @if($answer->ANS_VALUE)
-                                    <flux:badge color="green">Yes</flux:badge>
-                                @else
-                                    <flux:badge color="neutral">No</flux:badge>
-                                @endif
-                            @elseif($answer->question?->QUEST_TYPE === 'select')
-                                @php
-                                    $option = collect($answer->question?->QUEST_OPTIONS ?? [])->firstWhere('value', $answer->ANS_VALUE);
-                                @endphp
-                                <flux:badge color="blue">{{ $option['label'] ?? $answer->ANS_VALUE }}</flux:badge>
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
-
-{{-- Dynamic Document Details (form answers) --}}
-        @php
-            $formAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'form');
-        @endphp
-        @if($formAnswers->count() > 0)
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Document Details</h2>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($formAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div class="{{ $answer->question?->QUEST_TYPE === 'text' ? 'sm:col-span-2' : '' }}">
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                {{ $answer->ANS_VALUE ? 'Yes' : 'No' }}
-                            @elseif($answer->question?->QUEST_TYPE === 'date')
-                                {{ \Carbon\Carbon::parse($answer->ANS_VALUE)->format('d M Y') }}
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
-
-{{-- Dynamic Supporting Answers (TAT compliance) --}}
-        @php
-            $supportingAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_SECTION === 'supporting' && $a->question?->QUEST_TYPE !== 'file');
-        @endphp
-        @if($supportingAnswers->count() > 0)
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Supporting Information</h2>
-            <div class="grid gap-4 sm:grid-cols-2">
-                @foreach($supportingAnswers->sortBy(fn ($a) => $a->question?->QUEST_SORT_ORDER) as $answer)
-                    @if($answer->ANS_VALUE !== null && $answer->ANS_VALUE !== '')
-                    <div>
-                        <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $answer->question?->QUEST_LABEL }}</p>
-                        <p class="font-medium text-neutral-900 dark:text-white">
-                            @if($answer->question?->QUEST_TYPE === 'boolean')
-                                @if($answer->ANS_VALUE)
-                                    <flux:badge color="green">Yes</flux:badge>
-                                @else
-                                    <flux:badge color="neutral">No</flux:badge>
-                                @endif
-                            @else
-                                {{ $answer->ANS_VALUE }}
-                            @endif
-                        </p>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
+        @endforeach
 
 {{-- Finalization Checklist Answers --}}
     @php
