@@ -27,11 +27,20 @@ class UserFactory extends Factory
         return [
             'USER_FULLNAME' => $name,
             'USER_EMAIL' => fake()->unique()->safeEmail(),
+            'USER_ID' => fake()->unique()->numerify('##########'),
             'USER_PASSWORD' => static::$password ??= Hash::make('password'),
             'DIV_ID' => null,
             'DEPT_ID' => null,
             'USER_ROLE_ID' => \App\Models\Role::factory(),
         ];
+    }
+
+    /**
+     * Indicate that the user should not have two-factor authentication enabled.
+     */
+    public function withoutTwoFactor(): static
+    {
+        return $this->state(fn (array $attributes) => []);
     }
 
     /**

@@ -1,6 +1,6 @@
 <x-layouts.auth>
     <div class="flex flex-col gap-6">
-        <x-auth-header :title="__('')" :description="__('Enter your email and password below to log in')" />
+        <x-auth-header :title="__('')" :description="__('Enter your NIK and password below to log in')" />
 
         <!-- Session Status -->
         <x-auth-session-status class="text-center" :status="session('status')" />
@@ -8,16 +8,16 @@
         <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
             @csrf
 
-            <!-- Email Address -->
+            <!-- NIK -->
             <flux:input
-                name="email"
-                :label="__('Email address')"
-                :value="old('email')"
-                type="email"
+                name="nik"
+                :label="__('NIK')"
+                :value="old('nik')"
+                type="text"
                 required
                 autofocus
                 autocomplete="username"
-                placeholder="email@example.com"
+                placeholder="Masukkan NIK"
             />
 
             <!-- Password -->

@@ -35,7 +35,7 @@ class User extends Authenticatable
         'USER_ROLE_ID',
         'DIV_ID',
         'DEPT_ID',
-        'USER_ID_NUMBER',
+        'USER_ID',
         'USER_EMAIL_VERIFIED_DT',
         'USER_CREATED_BY',
         'USER_UPDATED_BY',

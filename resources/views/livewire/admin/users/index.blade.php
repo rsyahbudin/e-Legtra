@@ -69,7 +69,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->name = $user->USER_FULLNAME;
         $this->email = $user->USER_EMAIL;
         $this->password = '';
-        $this->user_id = $user->USER_ID_NUMBER ?? '';
+        $this->user_id = $user->USER_ID ?? '';
         $this->role_id = (string) ($user->USER_ROLE_ID ?? '');
         $this->division_id = (string) ($user->DIV_ID ?? '');
         $this->department_id = (string) ($user->DEPT_ID ?? '');
@@ -81,7 +81,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', $this->editingId ? "unique:LGL_USER,USER_EMAIL,{$this->editingId},LGL_ROW_ID" : 'unique:LGL_USER,USER_EMAIL'],
-            'user_id' => ['nullable', 'string', 'max:10', 'regex:/^[0-9]*$/'],
+            'user_id' => ['required', 'string', 'max:20', 'regex:/^[0-9]*$/', $this->editingId ? "unique:LGL_USER,USER_ID,{$this->editingId},LGL_ROW_ID" : 'unique:LGL_USER,USER_ID'],
             'role_id' => ['nullable', 'exists:LGL_ROLE,ROLE_ID'],
             'division_id' => ['nullable', 'exists:LGL_DIVISION,LGL_ROW_ID'],
             'department_id' => ['nullable', 'exists:LGL_DEPARTMENT,LGL_ROW_ID'],
@@ -96,7 +96,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $data = [
             'USER_FULLNAME' => $validated['name'],
             'USER_EMAIL' => $validated['email'],
-            'USER_ID_NUMBER' => $validated['user_id'] ?: null,
+            'USER_ID' => $validated['user_id'],
             'USER_ROLE_ID' => $validated['role_id'] ?: null,
             'DIV_ID' => $validated['division_id'] ?: null,
             'DEPT_ID' => $validated['department_id'] ?: null,
@@ -165,7 +165,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <tr class="hover:bg-neutral-50 dark:hover:bg-zinc-800" wire:key="user-{{ $user->LGL_ROW_ID }}">
                         <td class="px-4 py-3 font-medium text-neutral-900 dark:text-white">{{ $user->USER_FULLNAME }}</td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">{{ $user->USER_EMAIL }}</td>
-                        <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">{{ $user->USER_ID_NUMBER ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">{{ $user->USER_ID ?? '-' }}</td>
                         <td class="px-4 py-3">
                             @if($user->role)
                             <flux:badge color="{{ $user->role->ROLE_SLUG === 'super-admin' ? 'red' : ($user->role->ROLE_SLUG === 'legal' ? 'blue' : 'zinc') }}">{{ $user->role->ROLE_NAME }}</flux:badge>
