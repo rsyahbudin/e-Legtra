@@ -20,16 +20,7 @@
                 placeholder="Masukkan NIK"
             />
 
-            <!-- Password -->
-            <flux:input
-                name="password"
-                :label="__('Password')"
-                type="password"
-                required
-                autocomplete="current-password"
-                :placeholder="__('Password')"
-                viewable
-            />
+
 
             <!-- Remember Me -->
             <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />

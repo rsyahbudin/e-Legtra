@@ -18,7 +18,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(\Laravel\Fortify\Http\Requests\LoginRequest::class, \App\Http\Requests\Auth\SsoLoginRequest::class);
     }
 
     /**
@@ -33,7 +33,7 @@ class FortifyServiceProvider extends ServiceProvider
         \Laravel\Fortify\Fortify::authenticateUsing(function ($request) {
             $user = \App\Models\User::where('USER_ID', $request->nik)->first();
 
-            if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->USER_PASSWORD)) {
+            if ($user) {
                 return $user;
             }
 
