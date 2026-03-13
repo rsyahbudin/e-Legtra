@@ -16,7 +16,6 @@ class SsoLoginRequest extends FortifyLoginRequest
     {
         return [
             Fortify::username() => 'required|string',
-            // bypass password validation completely
         ];
     }
 }

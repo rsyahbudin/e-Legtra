@@ -31,9 +31,18 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
 
         \Laravel\Fortify\Fortify::authenticateUsing(function ($request) {
-            $user = \App\Models\User::where('USER_ID', $request->nik)->first();
+            if ($request->has('nik')) {
+                $user = \App\Models\User::where('USER_ID', $request->nik)->first();
 
-            if ($user) {
+                if (! $user) {
+                    abort(403, 'User not registered');
+                }
+
+                // If somehow the application needs to keep normal login behavior with password in the future
+                if ($request->filled('password') && !\Illuminate\Support\Facades\Hash::check($request->password, $user->USER_PASSWORD)) {
+                     return null;
+                }
+
                 return $user;
             }
 
