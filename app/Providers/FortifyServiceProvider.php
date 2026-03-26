@@ -19,6 +19,7 @@ class FortifyServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(\Laravel\Fortify\Http\Requests\LoginRequest::class, \App\Http\Requests\Auth\SsoLoginRequest::class);
+        $this->app->singleton(\Laravel\Fortify\Contracts\LogoutResponse::class, \App\Http\Responses\SsoLogoutResponse::class);
     }
 
     /**
@@ -39,8 +40,8 @@ class FortifyServiceProvider extends ServiceProvider
                 }
 
                 // If somehow the application needs to keep normal login behavior with password in the future
-                if ($request->filled('password') && !\Illuminate\Support\Facades\Hash::check($request->password, $user->USER_PASSWORD)) {
-                     return null;
+                if ($request->filled('password') && ! \Illuminate\Support\Facades\Hash::check($request->password, $user->USER_PASSWORD)) {
+                    return null;
                 }
 
                 return $user;

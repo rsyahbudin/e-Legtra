@@ -17,6 +17,12 @@ class Logout
         Session::invalidate();
         Session::regenerateToken();
 
+        $ssoLogoutUrl = config('services.sso.logout_url');
+
+        if ($ssoLogoutUrl) {
+            return redirect()->away($ssoLogoutUrl);
+        }
+
         return redirect('/');
     }
 }

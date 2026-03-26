@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'sso' => [
+        'logout_url' => env('SSO_LOGOUT_URL'),
+    ],
+
 ];
