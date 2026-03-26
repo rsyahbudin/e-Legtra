@@ -12,6 +12,16 @@ Route::get('/', function () {
     return redirect()->route('login');
 })->name('home');
 
+Route::get('/login', function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    $ssoLogoutUrl = config('services.sso.logout_url');
+
+    return $ssoLogoutUrl ? redirect()->away($ssoLogoutUrl) : abort(404);
+})->name('login');
+
 Volt::route('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');

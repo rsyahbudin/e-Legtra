@@ -87,8 +87,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             'department_id' => ['nullable', 'exists:LGL_DEPARTMENT,LGL_ROW_ID'],
         ];
 
-        if (!$this->editingId || $this->password) {
-            $rules['password'] = ['required', 'min:8'];
+        if ($this->password) {
+            $rules['password'] = ['min:8'];
         }
 
         $validated = $this->validate($rules);
@@ -229,8 +229,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             </flux:field>
             
             <flux:field>
-                <flux:label>Password {{ $editingId ? '(leave blank to keep current)' : '' }}</flux:label>
-                <flux:input type="password" wire:model="password" :required="!$editingId" />
+                <flux:label>Password (opsional — autentikasi via SSO)</flux:label>
+                <flux:input type="password" wire:model="password" placeholder="Kosongkan jika menggunakan SSO" />
                 <flux:error name="password" />
             </flux:field>
             
