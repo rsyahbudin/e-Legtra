@@ -83,11 +83,11 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $query = Ticket::with(['division', 'department', 'creator', 'contract', 'status', 'documentType'])
             ->when($this->search, fn ($q) => $q->where(function ($q) {
-                $q->where('TCKT_NO', 'like', "%{$this->search}%")
+                $q->where('TCKT_NO', 'ilike', "%{$this->search}%")
                     ->orWhereHas('answers', function ($qA) {
                         $qA->whereHas('question', function ($qQ) {
                             $qQ->where('QUEST_CODE', 'proposed_document_title');
-                        })->where('ANS_VALUE', 'like', "%{$this->search}%");
+                        })->where('ANS_VALUE', 'ilike', "%{$this->search}%");
                     });
             }))
             ->when($this->statusFilter, fn ($q) => $q->whereHas('status', fn ($sq) => $sq->where('LOV_VALUE', $this->statusFilter)))

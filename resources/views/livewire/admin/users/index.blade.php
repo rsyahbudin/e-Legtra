@@ -32,8 +32,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getUsersProperty()
     {
         return User::with(['role', 'division', 'department'])
-            ->when($this->search, fn($q) => $q->where('USER_FULLNAME', 'like', "%{$this->search}%")
-                ->orWhere('USER_EMAIL', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('USER_FULLNAME', 'ilike', "%{$this->search}%")
+                ->orWhere('USER_EMAIL', 'ilike', "%{$this->search}%"))
             ->orderBy('USER_FULLNAME')
             ->paginate(10);
     }

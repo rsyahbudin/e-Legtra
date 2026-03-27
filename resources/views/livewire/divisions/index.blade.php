@@ -25,8 +25,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getDivisionsProperty()
     {
         return Division::query()
-            ->when($this->search, fn($q) => $q->where('REF_DIV_NAME', 'like', "%{$this->search}%")
-                ->orWhere('REF_DIV_ID', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('REF_DIV_NAME', 'ilike', "%{$this->search}%")
+                ->orWhere('REF_DIV_ID', 'ilike', "%{$this->search}%"))
             ->withCount(['users', 'contracts', 'tickets'])
             ->orderBy('REF_DIV_NAME')
             ->paginate(10);

@@ -20,7 +20,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getRolesProperty()
     {
         return Role::withCount('permissions')
-            ->when($this->search, fn($q) => $q->where('ROLE_NAME', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('ROLE_NAME', 'ilike', "%{$this->search}%"))
             ->orderBy('ROLE_NAME')
             ->get();
     }
