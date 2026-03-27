@@ -30,13 +30,6 @@ new #[Layout('components.layouts.app')] class extends Component
     public string $sortCol = 'TCKT_CREATED_DT';
     public bool $sortAsc = false;
 
-    // Folder Link Modal
-    public bool $showFolderLinkModal = false;
-
-    public $selectedContract = null;
-
-    public string $folder_link = '';
-
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -135,40 +128,6 @@ new #[Layout('components.layouts.app')] class extends Component
     public function getDocumentTypesProperty()
     {
         return \App\Models\DocumentType::active()->get();
-    }
-
-
-    public function editFolderLink($contractId): void
-    {
-        $contract = \App\Models\Contract::findOrFail($contractId);
-        $this->selectedContract = $contract;
-        $this->folder_link = $contract->CONTR_DIR_SHARE_LINK ?? '';
-        $this->showFolderLinkModal = true;
-    }
-    
-
-    public function saveFolderLink(): void
-    {
-        $validated = $this->validate([
-            'folder_link' => ['nullable', 'url', 'max:500'],
-        ]);
-
-        $oldLink = $this->selectedContract->CONTR_DIR_SHARE_LINK;
-
-        $this->selectedContract->update([
-            'CONTR_DIR_SHARE_LINK' => $this->folder_link ?: null,
-        ]);
-
-        // Log activity to the ticket
-        if ($this->selectedContract->ticket) {
-            $message = $oldLink
-                ? 'Folder link updated'
-                : 'Folder link added';
-            $this->selectedContract->ticket->logActivity($message);
-        }
-
-        $this->showFolderLinkModal = false;
-        $this->dispatch('notify', type: 'success', message: 'Folder link saved successfully');
     }
 }; ?>
 

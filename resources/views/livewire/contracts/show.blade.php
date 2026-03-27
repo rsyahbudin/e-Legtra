@@ -504,16 +504,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 <p class="font-medium text-neutral-900 dark:text-white">{{ $ticket->contract->CONTR_END_DT?->format('d M Y') ?? '-' }}</p>
             </div>
             
-            @if($ticket->contract->CONTR_DIR_SHARE_LINK)
-            <div class="sm:col-span-2">
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Document Folder</p>
-                <a href="{{ $ticket->contract->CONTR_DIR_SHARE_LINK }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
-                    <flux:icon.link class="size-4" />
-                    Open Internal Sharing Folder
-                    <flux:icon.arrow-top-right-on-square class="size-3" />
-                </a>
-            </div>
-            @endif
+
             
             @if($ticket->contract->CONTR_TERMINATE_DT)
             <div class="sm:col-span-2">
@@ -534,7 +525,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file' && $a->ANS_VALUE);
     @endphp
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Uploaded Documents</h2>
+        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">User Documents (Request)</h2>
 
         @if($fileAnswers->count() > 0)
         <div class="space-y-4" x-data="{ previewImage: null }">
@@ -666,9 +657,90 @@ new #[Layout('components.layouts.app')] class extends Component
         @endif
     </div>
 
+    {{-- Legal Documents (scanned directly from storage) --}}
+    @php
+        $legalDocs = [];
+        try {
+            $docService = app(\App\Services\LegalDocumentService::class);
+            $legalDocs = $docService->getDocuments($ticket->TCKT_NO, 'legal');
+            // getDocuments returns relative paths like 'tickets/TCKT-001/legal/filename.pdf'
+        } catch (\Exception $e) {
+            // directory might not exist yet
+        }
+    @endphp
+    @if(!empty($legalDocs))
+    <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Legal Documents</h2>
+        <div class="space-y-4" x-data="{ previewImage: null }">
+            @foreach($legalDocs as $docPath)
+                @php
+                    $filename = basename($docPath);
+                    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                    $isPdf = $ext === 'pdf';
+                    $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                    // explicitly pass 'legal/filename' properly URL formatted
+                    $previewUrl = route('tickets.documents.preview', ['ticketNumber' => $ticket->TCKT_NO, 'path' => 'legal/' . $filename]);
+                    $downloadUrl = route('tickets.documents.download', ['ticketNumber' => $ticket->TCKT_NO, 'path' => 'legal/' . $filename]);
+                @endphp
+                <div class="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+                    <div class="flex items-center gap-3 min-w-0">
+                        @if($isPdf)
+                            <flux:icon name="document-text" class="h-5 w-5 flex-shrink-0 text-red-500" />
+                        @elseif($isImage)
+                            <flux:icon name="photo" class="h-5 w-5 flex-shrink-0 text-green-500" />
+                        @else
+                            <flux:icon name="document" class="h-5 w-5 flex-shrink-0 text-neutral-500" />
+                        @endif
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-medium text-neutral-900 dark:text-white">{{ $filename }}</p>
+                            <p class="text-xs uppercase text-neutral-500 dark:text-neutral-400">{{ $ext }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        @if($isPdf)
+                            <a href="{{ $previewUrl }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                                <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                            </a>
+                        @elseif($isImage)
+                            <button @click="previewImage = '{{ $previewUrl }}'" class="inline-flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50">
+                                <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                            </button>
+                        @endif
+                        <a href="{{ $downloadUrl }}" class="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600">
+                            <flux:icon name="arrow-down-tray" class="h-3.5 w-3.5" /> Download
+                        </a>
+                    </div>
+                </div>
+            @endforeach
+
+            {{-- Image Preview Modal (Alpine.js) --}}
+            <div x-show="previewImage" x-cloak
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @click.self="previewImage = null"
+                 @keydown.escape.window="previewImage = null"
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                <div class="relative max-h-[90vh] max-w-4xl">
+                    <button @click="previewImage = null"
+                            class="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-lg hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700">
+                        <flux:icon name="x-mark" class="h-5 w-5" />
+                    </button>
+                    <img :src="previewImage" alt="Document Preview"
+                         class="max-h-[85vh] rounded-lg object-contain shadow-2xl" />
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+
 {{-- Dynamic Answer Sections (driven by FormSection table) --}}
         @php
-            $detailSections = \App\Models\FormSection::active()->forDetail()->ordered()->get();
+            $detailSections = \App\Models\FormSection::active()->forDetail()->ordered()->get()->filter(fn($s) => $s->SECT_CODE !== 'finalization');
         @endphp
         @foreach($detailSections as $detailSection)
             @php

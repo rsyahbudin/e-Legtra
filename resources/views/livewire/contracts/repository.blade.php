@@ -23,13 +23,6 @@ new #[Layout('components.layouts.app')] class extends Component
     public string $sortCol = 'CONTR_CREATED_DT';
     public bool $sortAsc = false;
 
-    // Folder Link Modal
-    public bool $showFolderLinkModal = false;
-
-    public $selectedContract = null;
-
-    public string $folder_link = '';
-
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -94,38 +87,6 @@ new #[Layout('components.layouts.app')] class extends Component
         }
 
         return $query->orderBy($this->sortCol, $this->sortAsc ? 'asc' : 'desc')->paginate($this->perPage);
-    }
-
-    public function editFolderLink($contractId): void
-    {
-        $contract = Contract::findOrFail($contractId);
-        $this->selectedContract = $contract;
-        $this->folder_link = $contract->CONTR_DIR_SHARE_LINK ?? '';
-        $this->showFolderLinkModal = true;
-    }
-
-    public function saveFolderLink(): void
-    {
-        $validated = $this->validate([
-            'folder_link' => ['nullable', 'url', 'max:500'],
-        ]);
-
-        $oldLink = $this->selectedContract->CONTR_DIR_SHARE_LINK;
-
-        $this->selectedContract->update([
-            'CONTR_DIR_SHARE_LINK' => $this->folder_link ?: null,
-        ]);
-
-        // Log activity to the ticket
-        if ($this->selectedContract->ticket) {
-            $message = $oldLink
-                ? 'Folder link updated'
-                : 'Folder link added';
-            $this->selectedContract->ticket->logActivity($message);
-        }
-
-        $this->showFolderLinkModal = false;
-        $this->dispatch('notify', type: 'success', message: 'Folder link saved successfully');
     }
 
     public function getDivisionsProperty()
@@ -283,9 +244,6 @@ new #[Layout('components.layouts.app')] class extends Component
                         </td>
                         <td class="px-6 py-4 text-end">
                             <div class="flex items-center justify-end gap-2">
-                                @if(auth()->user()->hasAnyRole(['super-admin', 'legal']))
-                                <flux:button wire:click="editFolderLink({{ $contract->LGL_ROW_ID }})" icon="link" size="sm" variant="ghost" class="-my-1" title="Folder Link" />
-                                @endif
                                 <flux:button :href="route('tickets.show', $contract->TCKT_ID)" icon="eye" size="sm" variant="ghost" class="-my-1" />
                             </div>
                         </td>
@@ -311,28 +269,4 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </div>
     </div>
-
-    <!-- Folder Link Modal -->
-    <flux:modal wire:model="showFolderLinkModal" class="space-y-6">
-        <div>
-            <flux:heading size="lg">Edit Folder Link</flux:heading>
-            <flux:subheading>Contract: {{ $selectedContract?->CONTR_NO }}</flux:subheading>
-        </div>
-
-        <flux:field>
-            <flux:label>Folder Link (Internal File Sharing)</flux:label>
-            <flux:input 
-                wire:model="folder_link" 
-                type="url"
-                placeholder="https://..."
-            />
-            <flux:description>Enter internal sharing folder link (network drive, SharePoint, etc.)</flux:description>
-            <flux:error name="folder_link" />
-        </flux:field>
-
-        <div class="flex gap-2 justify-end">
-            <flux:button variant="ghost" wire:click="$set('showFolderLinkModal', false)">Cancel</flux:button>
-            <flux:button wire:click="saveFolderLink" variant="primary">Save</flux:button>
-        </div>
-    </flux:modal>
 </div>
