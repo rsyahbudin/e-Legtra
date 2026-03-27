@@ -98,6 +98,7 @@ class ContractService
             'CONTR_DESC' => $description,
             'CONTR_STS_ID' => ContractStatus::getIdByCode($status),
             'CONTR_CREATED_BY' => auth()->user()?->LGL_ROW_ID ?? $ticket->TCKT_REVIEWED_BY ?? $ticket->TCKT_CREATED_BY,
+            'CONTR_DIR_SHARE_LINK' => "tickets/{$ticket->TCKT_NO}",
         ]);
     }
 

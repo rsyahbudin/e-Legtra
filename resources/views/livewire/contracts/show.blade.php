@@ -520,6 +520,22 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
+    {{-- Shared Folder Information --}}
+    <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Document Storage Location</h2>
+        <div class="flex flex-col gap-2">
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">All documents for this ticket (including Legal approvals) are accessible directly via the following shared network directory:</p>
+            <div class="flex items-center gap-2 max-w-2xl">
+                @php
+                    $baseFolder = env('LEGAL_DOCS_ROOT', '/usr/share/files/legal_attachment/');
+                    $fullPath = rtrim($baseFolder, '/\\') . DIRECTORY_SEPARATOR . 'tickets' . DIRECTORY_SEPARATOR . $ticket->TCKT_NO;
+                @endphp
+                <code class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 select-all">{{ $fullPath }}</code>
+                <flux:button size="sm" variant="ghost" icon="clipboard" onclick="navigator.clipboard.writeText('{{ addslashes($fullPath) }}'); alert('Path copied to clipboard!');" title="Copy path" />
+            </div>
+        </div>
+    </div>
+
 <!-- Uploaded Documents (dynamic from file-type question answers) -->
     @php
         $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file' && $a->ANS_VALUE);
