@@ -16,8 +16,8 @@ test('createTicketFolders creates request and legal subdirectories', function ()
 
     $this->service->createTicketFolders($ticketNumber);
 
-    Storage::disk('legal_docs')->assertExists("tickets/{$ticketNumber}/request");
-    Storage::disk('legal_docs')->assertExists("tickets/{$ticketNumber}/legal");
+    Storage::disk('legal_docs')->assertExists("{$ticketNumber}/request");
+    Storage::disk('legal_docs')->assertExists("{$ticketNumber}/legal");
 });
 
 test('createTicketFolders is idempotent', function () {
@@ -26,8 +26,8 @@ test('createTicketFolders is idempotent', function () {
     $this->service->createTicketFolders($ticketNumber);
     $this->service->createTicketFolders($ticketNumber);
 
-    Storage::disk('legal_docs')->assertExists("tickets/{$ticketNumber}/request");
-    Storage::disk('legal_docs')->assertExists("tickets/{$ticketNumber}/legal");
+    Storage::disk('legal_docs')->assertExists("{$ticketNumber}/request");
+    Storage::disk('legal_docs')->assertExists("{$ticketNumber}/legal");
 });
 
 test('uploadDocument stores file to request category', function () {
@@ -38,7 +38,7 @@ test('uploadDocument stores file to request category', function () {
 
     $path = $this->service->uploadDocument($file, $ticketNumber, 'request');
 
-    expect($path)->toStartWith("tickets/{$ticketNumber}/request/");
+    expect($path)->toStartWith("{$ticketNumber}/request/");
     expect($path)->toEndWith('.pdf');
     Storage::disk('legal_docs')->assertExists($path);
 });
@@ -51,7 +51,7 @@ test('uploadDocument stores file to legal category', function () {
 
     $path = $this->service->uploadDocument($file, $ticketNumber, 'legal');
 
-    expect($path)->toStartWith("tickets/{$ticketNumber}/legal/");
+    expect($path)->toStartWith("{$ticketNumber}/legal/");
     expect($path)->toEndWith('.docx');
     Storage::disk('legal_docs')->assertExists($path);
 });
@@ -136,7 +136,7 @@ test('documentExists returns correct boolean', function () {
     $path = $this->service->uploadDocument($file, $ticketNumber, 'request');
 
     expect($this->service->documentExists($path))->toBeTrue();
-    expect($this->service->documentExists('tickets/fake/request/nope.pdf'))->toBeFalse();
+    expect($this->service->documentExists('fake/request/nope.pdf'))->toBeFalse();
 });
 
 test('getDocumentFullPath returns absolute path', function () {

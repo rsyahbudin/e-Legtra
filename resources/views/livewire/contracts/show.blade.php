@@ -679,7 +679,7 @@ new #[Layout('components.layouts.app')] class extends Component
         try {
             $docService = app(\App\Services\LegalDocumentService::class);
             $legalDocs = $docService->getDocuments($ticket->TCKT_NO, 'legal');
-            // getDocuments returns relative paths like 'tickets/TCKT-001/legal/filename.pdf'
+            // getDocuments returns relative paths like 'TCKT-001/legal/filename.pdf'
         } catch (\Exception $e) {
             // directory might not exist yet
         }

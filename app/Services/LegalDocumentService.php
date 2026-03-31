@@ -17,8 +17,8 @@ class LegalDocumentService
     /**
      * Create the folder structure for a ticket.
      *
-     * Creates: tickets/{ticket_number}/request/
-     *          tickets/{ticket_number}/legal/
+     * Creates: {ticket_number}/request/
+     *          {ticket_number}/legal/
      */
     public function createTicketFolders(string $ticketNumber): void
     {
@@ -91,7 +91,7 @@ class LegalDocumentService
      */
     private function buildPath(string $ticketNumber, string $category): string
     {
-        return "tickets/{$ticketNumber}/{$category}";
+        return "{$ticketNumber}/{$category}";
     }
 
     /**

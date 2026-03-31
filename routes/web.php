@@ -59,7 +59,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('tickets.edit');
 
     // Ticket Document Preview & Download
-    Route::middleware('permission:tickets.view')->prefix('tickets/{ticketNumber}/documents')->group(function () {
+    Route::middleware('permission:tickets.view')->prefix('{ticketNumber}/documents')->group(function () {
         Route::get('preview/{path}', [\App\Http\Controllers\TicketDocumentController::class, 'preview'])
             ->where('path', '.*')
             ->name('tickets.documents.preview');

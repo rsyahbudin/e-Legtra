@@ -19,13 +19,13 @@ class TicketDocumentController
      */
     private function resolveFullPath(string $ticketNumber, string $path): string
     {
-        $fullPath = "tickets/{$ticketNumber}/{$path}";
+        $fullPath = "{$ticketNumber}/{$path}";
 
         if (! Str::contains($path, '/')) {
-            if ($this->documentService->documentExists("tickets/{$ticketNumber}/request/{$path}")) {
-                return "tickets/{$ticketNumber}/request/{$path}";
-            } elseif ($this->documentService->documentExists("tickets/{$ticketNumber}/legal/{$path}")) {
-                return "tickets/{$ticketNumber}/legal/{$path}";
+            if ($this->documentService->documentExists("{$ticketNumber}/request/{$path}")) {
+                return "{$ticketNumber}/request/{$path}";
+            } elseif ($this->documentService->documentExists("{$ticketNumber}/legal/{$path}")) {
+                return "{$ticketNumber}/legal/{$path}";
             }
         }
 

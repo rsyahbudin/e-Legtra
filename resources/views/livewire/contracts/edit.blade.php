@@ -310,7 +310,7 @@ new #[Layout('components.layouts.app')] class extends Component
             return;
         }
 
-        $path = $file->store("tickets/{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public');
+        $path = $file->store("{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public');
 
         TicketAnswer::updateOrCreate(
             [
@@ -341,7 +341,7 @@ new #[Layout('components.layouts.app')] class extends Component
         foreach ($files as $file) {
             $paths[] = [
                 'name' => $file->getClientOriginalName(),
-                'path' => $file->store("tickets/{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public'),
+                'path' => $file->store("{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public'),
             ];
         }
 
