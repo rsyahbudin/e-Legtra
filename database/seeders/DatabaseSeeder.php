@@ -22,7 +22,11 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             SettingSeeder::class,
             DivisionSeeder::class,
-
+            LOVSeeder::class,
+            DocumentTypeSeeder::class,
+            ReminderTypeSeeder::class,
+            FormSectionSeeder::class,
+            FormQuestionSeeder::class,
         ]);
 
         // Create users
@@ -36,10 +40,10 @@ class DatabaseSeeder extends Seeder
 
         // Admin user - assign to Legal division/dept
         $admin = User::updateOrCreate(
-            ['USER_EMAIL' => 'admin@example.com'],
+            ['USER_EMAIL' => 'andre@example.com'],
             [
-                'USER_FULLNAME' => 'Admin User',
-                'USER_ID' => '1234567',
+                'USER_FULLNAME' => 'Andre User',
+                'USER_ID' => '24100715',
                 'USER_PASSWORD' => Hash::make('password'),
                 'USER_ROLE_ID' => $adminRole->ROLE_ID,
                 'DIV_ID' => $legalDivision?->LGL_ROW_ID,
