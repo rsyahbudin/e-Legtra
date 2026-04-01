@@ -8,11 +8,15 @@ use App\Services\ContractService;
 use App\Services\NotificationService;
 use App\Services\TicketService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use WithFileUploads;
+
     public Ticket $ticket;
 
     public bool $showRejectModal = false;
@@ -175,11 +179,15 @@ new #[Layout('components.layouts.app')] class extends Component
                 $fieldRules = [];
                 $fieldRules[] = $question->QUEST_IS_REQUIRED ? 'required' : 'nullable';
 
-                match ($question->QUEST_TYPE) {
-                    'text' => $fieldRules[] = 'string',
-                    'boolean' => $fieldRules[] = 'in:0,1',
-                    default => null,
-                };
+                if ($question->QUEST_TYPE === 'file') {
+                    $fieldRules = array_merge($fieldRules, ['file', 'max:' . ($question->QUEST_MAX_SIZE_KB ?? 10240)]);
+                } else {
+                    match ($question->QUEST_TYPE) {
+                        'text' => $fieldRules[] = 'string',
+                        'boolean' => $fieldRules[] = 'in:0,1',
+                        default => null,
+                    };
+                }
 
                 $rules["finalizationAnswers.{$question->QUEST_CODE}"] = $fieldRules;
             }
@@ -199,7 +207,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         'ANS_TICKET_ID' => $this->ticket->LGL_ROW_ID,
                         'ANS_QUESTION_ID' => $question->LGL_ROW_ID,
                     ],
-                    ['ANS_VALUE' => (string) $value]
+                    ['ANS_VALUE' => (string) $this->processFinalizationValue($question, $value)]
                 );
             }
         }
@@ -347,6 +355,18 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->dispatch('notify', type: 'success', message: 'Ticket successfully closed.');
 
         $this->mount($this->ticket->LGL_ROW_ID);
+    }
+
+    /**
+     * Process finalization answer value, handling file uploads if needed.
+     */
+    private function processFinalizationValue(FormQuestion $question, $value): ?string
+    {
+        if ($question->QUEST_TYPE === 'file' && $value instanceof \Illuminate\Http\UploadedFile) {
+            return $value->store("{$this->ticket->TCKT_NO}/legal", 'legal_docs');
+        }
+
+        return $value;
     }
 }; ?>
 
@@ -538,7 +558,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <!-- Uploaded Documents (dynamic from file-type question answers) -->
     @php
-        $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file' && $a->ANS_VALUE);
+        $fileAnswers = $ticket->answers->filter(fn ($a) => $a->question?->QUEST_TYPE === 'file' && $a->ANS_VALUE && $a->question?->QUEST_SECTION !== 'finalization');
     @endphp
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
         <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">User Documents (Request)</h2>
@@ -679,6 +699,18 @@ new #[Layout('components.layouts.app')] class extends Component
         try {
             $docService = app(\App\Services\LegalDocumentService::class);
             $legalDocs = $docService->getDocuments($ticket->TCKT_NO, 'legal');
+            
+            // Filter out files that are already listed as finalization answers
+            $finalizationFilePaths = $ticket->answers
+                ->where('question.QUEST_SECTION', 'finalization')
+                ->where('question.QUEST_TYPE', 'file')
+                ->pluck('ANS_VALUE')
+                ->map(fn($path) => basename($path))
+                ->toArray();
+
+            $legalDocs = array_filter($legalDocs, function($docPath) use ($finalizationFilePaths) {
+                return !in_array(basename($docPath), $finalizationFilePaths);
+            });
             // getDocuments returns relative paths like 'TCKT-001/legal/filename.pdf'
         } catch (\Exception $e) {
             // directory might not exist yet
@@ -824,6 +856,35 @@ new #[Layout('components.layouts.app')] class extends Component
                         <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $answer->ANS_VALUE ? 'Yes' : 'No' }}</p>
                     </div>
                 </div>
+                @elseif($answer->question?->QUEST_TYPE === 'file' && $answer->ANS_VALUE)
+                    @php
+                        $filename = basename($answer->ANS_VALUE);
+                        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        $isPdf = $ext === 'pdf';
+                        // Extract path AFTER ticket number from ANS_VALUE
+                        $relativeDocPath = Str::after($answer->ANS_VALUE, $ticket->TCKT_NO . '/');
+                        $previewUrl = route('tickets.documents.preview', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $relativeDocPath]);
+                        $downloadUrl = route('tickets.documents.download', ['ticketNumber' => $ticket->TCKT_NO, 'path' => $relativeDocPath]);
+                    @endphp
+                    <div class="mt-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
+                        <div class="flex items-center gap-3">
+                            <flux:icon name="document-check" class="h-5 w-5 text-green-500" />
+                            <div>
+                                <p class="text-sm font-medium text-neutral-900 dark:text-white">{{ $answer->question->QUEST_LABEL }}</p>
+                                <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $filename }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            @if($isPdf)
+                                <a href="{{ $previewUrl }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
+                                    <flux:icon name="eye" class="h-3.5 w-3.5" /> Preview
+                                </a>
+                            @endif
+                            <a href="{{ $downloadUrl }}" class="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300">
+                                <flux:icon name="arrow-down-tray" class="h-3.5 w-3.5" /> Download
+                            </a>
+                        </div>
+                    </div>
                 @elseif($answer->ANS_VALUE)
                 <div class="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
                     <p class="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $answer->question->QUEST_LABEL }}:</p>
@@ -930,6 +991,8 @@ new #[Layout('components.layouts.app')] class extends Component
                         </div>
                     @elseif($question->QUEST_TYPE === 'text')
                         <flux:textarea wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" rows="3" placeholder="{{ $question->QUEST_PLACEHOLDER }}" />
+                    @elseif($question->QUEST_TYPE === 'file')
+                        <flux:input type="file" wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" accept="{{ $question->QUEST_ACCEPT }}" />
                     @else
                         <flux:input wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" placeholder="{{ $question->QUEST_PLACEHOLDER }}" />
                     @endif

@@ -37,6 +37,8 @@ new #[Layout('components.layouts.app')] class extends Component
     public $dynamicFiles_mandatory_documents = [];
 
     public $dynamicFiles_approval_document;
+    
+    public $dynamicFiles_final_contract_file;
 
     public function mount(int $contract): void
     {
@@ -213,6 +215,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 match ($question->QUEST_TYPE) {
                     'text' => $fieldRules[] = 'string',
                     'boolean' => $fieldRules[] = 'in:0,1',
+                    'file' => $fieldRules[] = 'nullable|file|max:' . ($question->QUEST_MAX_SIZE_KB ?? 10240),
                     default => null,
                 };
 
@@ -224,6 +227,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $rules['dynamicFiles_draft_document'] = ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'];
         $rules['dynamicFiles_mandatory_documents.*'] = ['nullable', 'file', 'max:10240'];
         $rules['dynamicFiles_approval_document'] = ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
+        $rules['dynamicFiles_final_contract_file'] = ['nullable', 'file', 'max:10240'];
 
         $this->validate($rules);
 
@@ -253,6 +257,10 @@ new #[Layout('components.layouts.app')] class extends Component
 
         if ($this->dynamicFiles_approval_document) {
             $this->saveFileAnswer('approval_document', $this->dynamicFiles_approval_document);
+        }
+
+        if ($this->dynamicFiles_final_contract_file) {
+            $this->saveFileAnswer('final_contract_file', $this->dynamicFiles_final_contract_file, 'legal');
         }
 
         // Log activity
@@ -303,14 +311,15 @@ new #[Layout('components.layouts.app')] class extends Component
     /**
      * Save a single file upload as a TicketAnswer.
      */
-    private function saveFileAnswer(string $questionCode, $file): void
+    private function saveFileAnswer(string $questionCode, $file, string $category = 'request'): void
     {
         $question = FormQuestion::where('QUEST_CODE', $questionCode)->first();
         if (! $question) {
             return;
         }
 
-        $path = $file->store("{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public');
+        // Use legal_docs disk and TCKT_NO path
+        $path = $file->store("{$this->ticket->TCKT_NO}/{$category}", 'legal_docs');
 
         TicketAnswer::updateOrCreate(
             [
@@ -341,7 +350,7 @@ new #[Layout('components.layouts.app')] class extends Component
         foreach ($files as $file) {
             $paths[] = [
                 'name' => $file->getClientOriginalName(),
-                'path' => $file->store("{$this->ticket->LGL_ROW_ID}/{$questionCode}", 'public'),
+                'path' => $file->store("{$this->ticket->TCKT_NO}/request", 'legal_docs'),
             ];
         }
 
@@ -546,6 +555,17 @@ new #[Layout('components.layouts.app')] class extends Component
                             </flux:radio.group>
                         @elseif($question->QUEST_TYPE === 'text')
                             <flux:textarea wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" rows="3" :placeholder="$question->QUEST_PLACEHOLDER" />
+                        @elseif($question->QUEST_TYPE === 'file')
+                            @php
+                                $existingFile = $this->finalizationAnswers[$question->QUEST_CODE] ?? null;
+                            @endphp
+                            @if($existingFile)
+                            <div class="mb-2 text-sm text-green-600 dark:text-green-400">
+                                ✓ File already uploaded: {{ basename($existingFile) }}. Upload a new file to replace.
+                            </div>
+                            @endif
+                            <input type="file" wire:model="dynamicFiles_{{ $question->QUEST_CODE }}" {{ $question->QUEST_ACCEPT ? 'accept='.$question->QUEST_ACCEPT : '' }} class="block w-full text-sm text-neutral-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 dark:text-neutral-400 dark:file:bg-blue-900/30 dark:file:text-blue-400" />
+                            <div wire:loading wire:target="dynamicFiles_{{ $question->QUEST_CODE }}" class="mt-2 text-sm text-blue-600">Uploading...</div>
                         @else
                             <flux:input wire:model="finalizationAnswers.{{ $question->QUEST_CODE }}" :placeholder="$question->QUEST_PLACEHOLDER" />
                         @endif

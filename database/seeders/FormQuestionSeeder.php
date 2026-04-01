@@ -53,11 +53,12 @@ class FormQuestionSeeder extends Seeder
             ['doc_type' => $suratKuasaId, 'section' => 'form', 'code' => 'kuasa_start_date', 'label' => 'Estimated Start Date of Power of Attorney', 'type' => 'date', 'width' => 'half', 'required' => true, 'sort' => 3],
             ['doc_type' => $suratKuasaId, 'section' => 'form', 'code' => 'kuasa_end_date', 'label' => 'Power of Attorney End Date', 'type' => 'date', 'width' => 'half', 'required' => true, 'sort' => 4],
 
-            // ─── Finalization checklist (Perjanjian) ───
-            ['doc_type' => $perjanjianId, 'section' => 'finalization', 'code' => 'signed_by_both_parties', 'label' => 'Has the document been signed by both parties?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 1],
-            ['doc_type' => $perjanjianId, 'section' => 'finalization', 'code' => 'saved_in_sharing_folder', 'label' => 'Has the final document been saved in the internal sharing folder?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 2],
-            ['doc_type' => $perjanjianId, 'section' => 'finalization', 'code' => 'mandatory_attachments_complete', 'label' => 'Are all mandatory attachments complete?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 3],
-            ['doc_type' => $perjanjianId, 'section' => 'finalization', 'code' => 'finalization_remarks', 'label' => 'Remarks (Optional)', 'type' => 'text', 'width' => 'full', 'required' => false, 'sort' => 4, 'placeholder' => 'Additional notes or remarks (max 1000 characters)', 'description' => 'Maximum 1000 characters'],
+            // ─── Finalization checklist (Global for all documents that reach Done phase) ───
+            ['doc_type' => null, 'section' => 'finalization', 'code' => 'signed_by_both_parties', 'label' => 'Has the document been signed by both parties?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 1],
+            ['doc_type' => null, 'section' => 'finalization', 'code' => 'saved_in_sharing_folder', 'label' => 'Has the final document been saved in the internal sharing folder?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 2],
+            ['doc_type' => null, 'section' => 'finalization', 'code' => 'mandatory_attachments_complete', 'label' => 'Are all mandatory attachments complete?', 'type' => 'boolean', 'width' => 'full', 'required' => true, 'sort' => 3],
+            ['doc_type' => null, 'section' => 'finalization', 'code' => 'final_contract_file', 'label' => 'Upload Final Document', 'type' => 'file', 'width' => 'full', 'required' => false, 'sort' => 4, 'description' => 'PDF or Word, max 10MB', 'accept' => '.pdf,.doc,.docx', 'max_size_kb' => 10240],
+            ['doc_type' => null, 'section' => 'finalization', 'code' => 'finalization_remarks', 'label' => 'Remarks (Optional)', 'type' => 'text', 'width' => 'full', 'required' => false, 'sort' => 5, 'placeholder' => 'Additional notes or remarks (max 1000 characters)', 'description' => 'Maximum 1000 characters'],
         ];
 
         foreach ($questions as $q) {
