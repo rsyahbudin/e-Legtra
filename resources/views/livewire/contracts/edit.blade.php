@@ -47,7 +47,7 @@ new #[Layout('components.layouts.app')] class extends Component
         // Populate structural fields
         $this->division_id = $this->ticket->DIV_ID;
         $this->department_id = $this->ticket->DEPT_ID;
-        $this->document_type = $this->ticket->documentType?->code ?? '';
+        $this->document_type = $this->ticket->documentType?->CODE ?? '';
 
         // Populate dynamic answers from existing ticket answers
         foreach ($this->ticket->answers as $answer) {
@@ -169,7 +169,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
         // Base validation rules (only structural)
         $rules = [
-            'document_type' => ['required', Rule::in(DocumentType::active()->pluck('code')->toArray())],
+            'document_type' => ['required', Rule::in(DocumentType::active()->pluck('CODE')->toArray())],
         ];
 
         // Dynamic question validation for all sections
@@ -246,21 +246,24 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->saveAnswersForSection($this->finalizationQuestions, $this->finalizationAnswers);
         }
 
-        // Handle file uploads — store paths as TicketAnswer values
-        if ($this->dynamicFiles_draft_document) {
-            $this->saveFileAnswer('draft_document', $this->dynamicFiles_draft_document);
-        }
-
+        // 1. Handle hardcoded multiple files (standard supporting docs)
         if ($this->dynamicFiles_mandatory_documents && count($this->dynamicFiles_mandatory_documents) > 0) {
             $this->saveMultipleFileAnswer('mandatory_documents', $this->dynamicFiles_mandatory_documents);
         }
 
-        if ($this->dynamicFiles_approval_document) {
-            $this->saveFileAnswer('approval_document', $this->dynamicFiles_approval_document);
-        }
+        // 2. Handle all single-file questions from the DB dynamically
+        $fileQuestions = FormQuestion::where('QUEST_TYPE', 'file')
+            ->where('QUEST_IS_MULTIPLE', false)
+            ->get();
 
-        if ($this->dynamicFiles_final_contract_file) {
-            $this->saveFileAnswer('final_contract_file', $this->dynamicFiles_final_contract_file, 'legal');
+        foreach ($fileQuestions as $question) {
+            $propName = "dynamicFiles_{$question->QUEST_CODE}";
+            
+            if (isset($this->{$propName}) && $this->{$propName} instanceof \Illuminate\Http\UploadedFile) {
+                // Determine folder: finalization section or QUEST_CODE starting with 'final_' goes to 'legal'
+                $category = ($question->QUEST_SECTION === 'finalization') ? 'legal' : 'request';
+                $this->saveFileAnswer($question->QUEST_CODE, $this->{$propName}, $category);
+            }
         }
 
         // Log activity
@@ -276,6 +279,9 @@ new #[Layout('components.layouts.app')] class extends Component
             ],
             'LOG_NAME' => 'ticket_activity',
         ]);
+
+        // Sync standard answers back to legacy Ticket master fields
+        $this->ticket->syncStandardAnswersToColumns();
 
         session()->flash('success', 'Ticket updated successfully.');
         $this->redirect(route('tickets.show', $this->ticket->LGL_ROW_ID), navigate: true);
@@ -451,7 +457,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     <flux:select wire:model.live="document_type" required>
                         <option value="">Select Document Type</option>
                         @foreach($this->documentTypes as $docType)
-                        <option value="{{ $docType->code }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
+                        <option value="{{ $docType->CODE }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
                         @endforeach
                     </flux:select>
                     <flux:error name="document_type" />

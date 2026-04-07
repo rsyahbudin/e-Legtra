@@ -35,6 +35,7 @@ class FormQuestion extends Model
         'QUEST_MAX_SIZE_KB',
         'QUEST_ACCEPT',
         'QUEST_IS_MULTIPLE',
+        'QUEST_IS_REPORTED',
     ];
 
     protected function casts(): array
@@ -44,6 +45,7 @@ class FormQuestion extends Model
             'QUEST_IS_REQUIRED' => 'boolean',
             'QUEST_IS_ACTIVE' => 'boolean',
             'QUEST_IS_MULTIPLE' => 'boolean',
+            'QUEST_IS_REPORTED' => 'boolean',
         ];
     }
 

@@ -44,11 +44,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->div_id = $dept->DIV_ID;
         $this->ref_dept_name = $dept->REF_DEPT_NAME;
         $this->ref_dept_id = $dept->REF_DEPT_ID;
-        $this->email = $dept->email ?? '';
+        $this->email = $dept->EMAIL ?? '';
         
         // Convert array to comma-separated string for editing
-        $this->cc_emails_input = !empty($dept->cc_emails) 
-            ? implode(', ', $dept->cc_emails) 
+        $this->cc_emails_input = !empty($dept->CC_EMAILS) 
+            ? implode(', ', $dept->CC_EMAILS) 
             : '';
             
         $this->showModal = true;
@@ -79,8 +79,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             'DIV_ID' => $validated['div_id'],
             'REF_DEPT_NAME' => $validated['ref_dept_name'],
             'REF_DEPT_ID' => $validated['ref_dept_id'],
-            'email' => !empty($validated['email']) ? $validated['email'] : null,
-            'cc_emails' => !empty($ccEmails) ? $ccEmails : null,
+            'EMAIL' => !empty($validated['email']) ? $validated['email'] : null,
+            'CC_EMAILS' => !empty($ccEmails) ? $ccEmails : null,
         ];
         
         \Log::info('Saving department', [
@@ -98,14 +98,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             $dept->refresh();
             \Log::info('Department updated', [
                 'id' => $dept->LGL_ROW_ID,
-                'cc_emails_raw' => $dept->getRawOriginal('cc_emails'),
-                'cc_emails_cast' => $dept->cc_emails,
+                'cc_emails_raw' => $dept->getRawOriginal('CC_EMAILS'),
+                'cc_emails_cast' => $dept->CC_EMAILS,
             ]);
             
             $this->dispatch('notify', type: 'success', message: 'Department updated successfully!');
         } else {
             $dept = Department::create($data);
-            \Log::info('Department created', ['id' => $dept->LGL_ROW_ID, 'cc_emails' => $dept->cc_emails]);
+            \Log::info('Department created', ['id' => $dept->LGL_ROW_ID, 'cc_emails' => $dept->CC_EMAILS]);
             $this->dispatch('notify', type: 'success', message: 'Department added successfully!');
         }
         
@@ -170,16 +170,16 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <code class="rounded bg-neutral-100 px-2 py-1 dark:bg-neutral-800">{{ $dept->REF_DEPT_ID }}</code>
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                            @if($dept->email)
-                                <a href="mailto:{{ $dept->email }}" class="text-blue-600 hover:underline dark:text-blue-400">{{ $dept->email }}</a>
+                            @if($dept->EMAIL)
+                                <a href="mailto:{{ $dept->EMAIL }}" class="text-blue-600 hover:underline dark:text-blue-400">{{ $dept->EMAIL }}</a>
                             @else
                                 <span class="text-neutral-400 dark:text-neutral-500">No email</span>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                            @if(!empty($dept->cc_emails))
+                            @if(!empty($dept->CC_EMAILS))
                                 <div class="flex flex-wrap gap-1">
-                                    @foreach($dept->cc_emails as $email)
+                                    @foreach($dept->CC_EMAILS as $email)
                                     <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                                         {{ $email }}
                                     </span>

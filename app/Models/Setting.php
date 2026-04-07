@@ -21,8 +21,8 @@ class Setting extends Model
     protected $fillable = [
         'CONFIG_KEY',
         'CONFIG_VALUE',
-        'type', // Not renamed in migration check
-        'description', // Not renamed in migration check
+        'TYPE', // Not renamed in migration check
+        'DESCRIPTION', // Not renamed in migration check
     ];
 
     /**
@@ -42,7 +42,7 @@ class Setting extends Model
             return $default;
         }
 
-        return static::castValue($setting->CONFIG_VALUE, $setting->type);
+        return static::castValue($setting->CONFIG_VALUE ?? (string) $default, $setting->TYPE);
     }
 
     /**
@@ -54,8 +54,8 @@ class Setting extends Model
             ['CONFIG_KEY' => $key],
             [
                 'CONFIG_VALUE' => is_array($value) || is_object($value) ? json_encode($value) : (string) $value,
-                'type' => $type ?? static::guessType($value),
-                'description' => $description,
+                'TYPE' => $type ?? static::guessType($value),
+                'DESCRIPTION' => $description,
             ]
         );
 
@@ -67,8 +67,12 @@ class Setting extends Model
     /**
      * Cast value based on type.
      */
-    protected static function castValue(string $value, ?string $type): mixed
+    protected static function castValue(?string $value, ?string $type): mixed
     {
+        if ($value === null) {
+            return null;
+        }
+
         return match ($type) {
             'integer', 'int' => (int) $value,
             'float', 'double' => (float) $value,
@@ -110,7 +114,7 @@ class Setting extends Model
     public static function allAsArray(): array
     {
         return static::all()->mapWithKeys(function ($setting) {
-            return [$setting->CONFIG_KEY => static::castValue($setting->CONFIG_VALUE, $setting->type)];
+            return [$setting->CONFIG_KEY => static::castValue($setting->CONFIG_VALUE, $setting->TYPE)];
         })->toArray();
     }
 }

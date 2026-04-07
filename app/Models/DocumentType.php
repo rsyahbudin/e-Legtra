@@ -20,10 +20,10 @@ class DocumentType extends Model
     const UPDATED_AT = 'REF_DOC_TYPE_UPDATED_DT';
 
     protected $fillable = [
-        'code',
+        'CODE',
         'REF_DOC_TYPE_NAME',
-        'description',
-        'requires_contract',
+        'DESCRIPTION',
+        'REQUIRES_CONTRACT',
         'REF_DOC_TYPE_IS_ACTIVE',
         'DOC_TYPE_SORT_ORDER',
     ];
@@ -31,7 +31,7 @@ class DocumentType extends Model
     protected function casts(): array
     {
         return [
-            'requires_contract' => 'boolean',
+            'REQUIRES_CONTRACT' => 'boolean',
             'REF_DOC_TYPE_IS_ACTIVE' => 'boolean',
         ];
     }
@@ -50,7 +50,7 @@ class DocumentType extends Model
     public static function getIdByCode(string $code): ?int
     {
         return cache()->remember("document_type_{$code}", 3600, function () use ($code) {
-            return static::where('code', $code)->value('LGL_ROW_ID');
+            return static::where('CODE', $code)->value('LGL_ROW_ID');
         });
     }
 
@@ -85,6 +85,6 @@ class DocumentType extends Model
      */
     public function requiresContract(): bool
     {
-        return $this->requires_contract;
+        return $this->REQUIRES_CONTRACT;
     }
 }

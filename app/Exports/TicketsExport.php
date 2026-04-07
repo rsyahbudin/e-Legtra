@@ -43,7 +43,7 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
     private function getDynamicQuestionCodes(): Collection
     {
         return FormQuestion::active()
-            ->where('QUEST_CODE', '!=', 'proposed_document_title')
+            ->where('QUEST_IS_REPORTED', true)
             ->ordered()
             ->get(['QUEST_CODE', 'QUEST_LABEL', 'QUEST_TYPE']);
     }
@@ -54,7 +54,7 @@ class TicketsExport implements FromCollection, WithColumnWidths, WithHeadings, W
 
         $query = Ticket::with(['division', 'department', 'creator', 'contract', 'status', 'answers.question'])
             ->when($this->statusFilter, fn ($q) => $q->whereHas('status', fn ($sq) => $sq->where('LOV_VALUE', $this->statusFilter)))
-            ->when($this->typeFilter, fn ($q) => $q->whereHas('documentType', fn ($sq) => $sq->where('code', $this->typeFilter)))
+            ->when($this->typeFilter, fn ($q) => $q->whereHas('documentType', fn ($sq) => $sq->where('CODE', $this->typeFilter)))
             ->when($this->divisionId, fn ($q) => $q->where('DIV_ID', $this->divisionId))
             ->when($this->startDate, fn ($q) => $q->whereDate('TCKT_CREATED_DT', '>=', $this->startDate))
             ->when($this->endDate, fn ($q) => $q->whereDate('TCKT_CREATED_DT', '<=', $this->endDate))

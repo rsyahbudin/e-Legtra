@@ -19,6 +19,22 @@ class User extends Authenticatable
 
     protected $primaryKey = 'LGL_ROW_ID';
 
+    /**
+     * Override to prevent Oracle driver from auto-detecting USER_ID as PK.
+     */
+    public function getKeyName(): string
+    {
+        return 'LGL_ROW_ID';
+    }
+
+    /**
+     * Override for session persistence — ensures LGL_ROW_ID is stored in session.
+     */
+    public function getAuthIdentifierName(): string
+    {
+        return 'LGL_ROW_ID';
+    }
+
     const CREATED_AT = 'USER_CREATED_DT';
 
     const UPDATED_AT = 'USER_UPDATED_DT';
@@ -174,8 +190,11 @@ class User extends Authenticatable
     /**
      * Check if user has a specific role.
      */
-    public function hasRole(string $slug): bool
+    public function hasRole(string|array $slug): bool
     {
+        if (is_array($slug)) {
+            return $this->hasAnyRole($slug);
+        }
         return $this->role && $this->role->ROLE_SLUG === $slug;
     }
 

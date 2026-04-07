@@ -106,6 +106,13 @@ class NotificationService
             $ticket,
             [$ticket->TCKT_CREATED_BY, auth()->user()?->LGL_ROW_ID]
         );
+
+        // Create notification for the creator confirming submission
+        $this->createNotificationForUser(
+            $ticket->creator,
+            "Your ticket #{$ticket->TCKT_NO} has been successfully submitted for review.",
+            $ticket
+        );
     }
 
     /**

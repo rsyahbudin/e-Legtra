@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
         ]);
+
+        // SSO login: CSRF excluded because login POST comes from external SSO portal
+        $middleware->validateCsrfTokens(except: [
+            'login',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

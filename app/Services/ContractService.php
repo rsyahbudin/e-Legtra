@@ -23,8 +23,7 @@ class ContractService
             throw new \Exception("Division not found for ID: {$divisionId}");
         }
 
-        $divCode = strtoupper(substr($division->code ?? 'UNK', 0, 3));
-
+$divCode = strtoupper(substr($division->REF_DIV_ID ?? 'UNK', 0, 3));
         $year = now()->format('y');
         $month = now()->format('m');
         $prefix = "CTR-{$divCode}-{$year}{$month}";
@@ -50,7 +49,7 @@ class ContractService
     public function createFromTicket(Ticket $ticket): Contract
     {
         $ticket->load('answers.question');
-        $docCode = $ticket->documentType?->code;
+        $docCode = $ticket->documentType?->CODE;
 
         $status = 'active';
         $endDate = null;
@@ -94,7 +93,7 @@ class ContractService
             'CONTR_PIC_ID' => $ticket->TCKT_CREATED_BY,
             'CONTR_START_DT' => $startDate ? \Carbon\Carbon::parse($startDate) : null,
             'CONTR_END_DT' => $parsedEndDate,
-            'CONTR_IS_AUTO_RENEW' => $isAutoRenew,
+'CONTR_IS_AUTO_RENEW' => (int) $isAutoRenew,
             'CONTR_DESC' => $description,
             'CONTR_STS_ID' => ContractStatus::getIdByCode($status),
             'CONTR_CREATED_BY' => auth()->user()?->LGL_ROW_ID ?? $ticket->TCKT_REVIEWED_BY ?? $ticket->TCKT_CREATED_BY,

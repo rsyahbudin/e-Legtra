@@ -23,15 +23,15 @@ class Department extends Model
         'DIV_ID',
         'REF_DEPT_NAME',
         'REF_DEPT_ID',
-        'email',
-        'cc_emails',
+        'EMAIL',
+        'CC_EMAILS',
         'IS_ACTIVE',
     ];
 
     protected function casts(): array
     {
         return [
-            'cc_emails' => 'array',
+            'CC_EMAILS' => 'array',
             'IS_ACTIVE' => 'boolean',
         ];
     }
@@ -41,19 +41,19 @@ class Department extends Model
      */
     public function getCcEmailsListAttribute(): array
     {
-        if (is_null($this->cc_emails)) {
+        if (is_null($this->CC_EMAILS)) {
             return [];
         }
 
         // If it's already an array (from cast), return it
-        if (is_array($this->cc_emails)) {
-            return $this->cc_emails;
+        if (is_array($this->CC_EMAILS)) {
+            return $this->CC_EMAILS;
         }
 
         // If it's a string, try to parse it
-        if (is_string($this->cc_emails)) {
+        if (is_string($this->CC_EMAILS)) {
             // Remove any surrounding quotes and decode
-            $cleaned = trim($this->cc_emails, '"');
+            $cleaned = trim($this->CC_EMAILS, '"');
 
             // Try JSON decode first
             $decoded = json_decode($cleaned, true);
@@ -112,7 +112,7 @@ class Department extends Model
             ->orWhere('REF_DEPT_NAME', 'LIKE', '%Legal%')
             ->first();
 
-        return $legalDept?->email;
+        return $legalDept?->EMAIL;
     }
 
     /**

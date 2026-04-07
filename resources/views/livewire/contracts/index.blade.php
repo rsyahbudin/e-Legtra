@@ -201,7 +201,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <flux:select wire:model.live="typeFilter" placeholder="Document Type">
                 <flux:select.option value="">All Types</flux:select.option>
                 @foreach($this->documentTypes as $type)
-                    <flux:select.option value="{{ $type->code }}">{{ $type->REF_DOC_TYPE_NAME }}</flux:select.option>
+                    <flux:select.option value="{{ $type->CODE }}">{{ $type->REF_DOC_TYPE_NAME }}</flux:select.option>
                 @endforeach
             </flux:select>
 

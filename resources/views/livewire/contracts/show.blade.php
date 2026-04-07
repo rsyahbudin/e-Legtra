@@ -32,6 +32,9 @@ new #[Layout('components.layouts.app')] class extends Component
     // Dynamic finalization answers (keyed by question code)
     public array $finalizationAnswers = [];
 
+    // Manual legal file upload
+    public $newLegalFile;
+
     public function mount(int $contract): void
     {
         $this->ticket = Ticket::with([
@@ -217,6 +220,9 @@ new #[Layout('components.layouts.app')] class extends Component
         $ticketService->moveToDone($this->ticket);
 
         $this->ticket->refresh();
+        
+        // Sync finalization and standard answers back to legacy Ticket master fields
+        $this->ticket->syncStandardAnswersToColumns();
 
         // Create contract from ticket
         if (! $this->ticket->contract && $this->canCreateContract()) {
@@ -240,11 +246,24 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->mount($this->ticket->LGL_ROW_ID);
     }
 
+    public function uploadLegalFile()
+    {
+        $this->validate([
+            'newLegalFile' => 'required|file|max:20480', // 20MB limit
+        ]);
+
+        $filename = $this->newLegalFile->getClientOriginalName();
+        $this->newLegalFile->storeAs("{$this->ticket->TCKT_NO}/legal", $filename, 'legal_docs');
+
+        $this->newLegalFile = null;
+        $this->dispatch('notify', message: 'Document uploaded successfully to legal folder.', type: 'success');
+        
+        $this->mount($this->ticket->LGL_ROW_ID);
+    }
+
     public function generateContract(): void
     {
-        $contractableTypes = ['perjanjian', 'nda', 'surat_kuasa'];
-
-        if (! in_array($this->ticket->documentType?->code, $contractableTypes)) {
+        if (! $this->ticket->documentType?->REQUIRES_CONTRACT) {
             $this->dispatch('notify', type: 'error', message: 'This document type does not require a contract.');
 
             return;
@@ -284,11 +303,9 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function canCreateContract(): bool
     {
-        $contractableTypes = ['perjanjian', 'nda', 'surat_kuasa'];
-
-        return $this->ticket->status?->LOV_VALUE === 'done'
-            && ! $this->ticket->contract
-            && in_array($this->ticket->documentType?->code, $contractableTypes);
+        return $this->ticket->documentType?->REQUIRES_CONTRACT
+            && $this->ticket->status?->LOV_VALUE === 'done'
+            && ! $this->ticket->contract;
     }
 
     public function openTerminateModal(): void
@@ -419,7 +436,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 <flux:button wire:click="openRejectModal" variant="danger" icon="x-mark">Reject Ticket</flux:button>
             @elseif($ticket->status?->LOV_VALUE === 'on_process')
                 @php
-                    $isContractable = $ticket->documentType?->requires_contract;
+                    $isContractable = $ticket->documentType?->REQUIRES_CONTRACT;
                 @endphp
                 
                 @if($isContractable)
@@ -718,7 +735,29 @@ new #[Layout('components.layouts.app')] class extends Component
     @endphp
     @if(!empty($legalDocs))
     <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Legal Documents</h2>
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Legal Documents</h2>
+            
+            @if(auth()->user()->hasRole(['legal', 'super-admin']))
+            <div class="flex items-center gap-2">
+                <input type="file" wire:model="newLegalFile" class="hidden" id="legal-file-upload" />
+                <flux:button variant="ghost" size="sm" onclick="document.getElementById('legal-file-upload').click()">
+                    <flux:icon name="plus" class="mr-2 h-4 w-4" /> Upload Document
+                </flux:button>
+                <div wire:loading wire:target="newLegalFile" class="text-xs text-blue-600">Uploading...</div>
+                @if($newLegalFile)
+                    <flux:button variant="primary" size="sm" wire:click="uploadLegalFile">
+                        Save
+                    </flux:button>
+                @endif
+            </div>
+            @endif
+        </div>
+        
+        @error('newLegalFile')
+            <p class="mb-4 text-xs text-red-600">{{ $message }}</p>
+        @enderror
+
         <div class="space-y-4" x-data="{ previewImage: null }">
             @foreach($legalDocs as $docPath)
                 @php

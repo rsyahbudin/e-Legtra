@@ -26,7 +26,7 @@ new class extends Component
     public function markAsRead(int $id): void
     {
         $notification = Notification::findOrFail($id);
-        if ($notification->user_id === auth()->id()) {
+        if ((int) $notification->USER_ID === (int) auth()->id()) {
             $notification->markAsRead();
         }
     }

@@ -158,7 +158,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $rules = [
                 'DIV_ID' => ['required', 'exists:LGL_DIVISION,LGL_ROW_ID'],
                 'DEPT_ID' => ['required', 'exists:LGL_DEPARTMENT,LGL_ROW_ID'],
-                'document_type' => ['required', Rule::in(DocumentType::active()->pluck('code')->toArray())],
+                'document_type' => ['required', Rule::in(DocumentType::active()->pluck('CODE')->toArray())],
             ];
 
             // Dynamic question validation for all sections
@@ -265,10 +265,15 @@ new #[Layout('components.layouts.app')] class extends Component
                 ]);
             }
 
+            // Sync standard answers back to legacy Ticket master fields
+            $ticket->syncStandardAnswersToColumns();
+
             session()->flash('success', 'Ticket created successfully and notification sent to legal team.');
 
             return $this->redirect(route('tickets.index'), navigate: true);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Ticket creation failed', [
                 'user_id' => Auth::id(),
@@ -439,7 +444,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <flux:select wire:model.live="document_type" required>
                                 <option value="">Select Document Type</option>
                                 @foreach($this->documentTypes as $docType)
-                                <option value="{{ $docType->code }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
+                                <option value="{{ $docType->CODE }}">{{ $docType->REF_DOC_TYPE_NAME }}</option>
                                 @endforeach
                             </flux:select>
                             <flux:error name="document_type" />

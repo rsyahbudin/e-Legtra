@@ -40,7 +40,7 @@ class ContractsExport implements FromCollection, WithColumnWidths, WithHeadings,
                     $q->whereHas('status', fn ($sq) => $sq->where('LOV_VALUE', $this->statusFilter));
                 }
             })
-            ->when($this->typeFilter, fn ($q) => $q->whereHas('documentType', fn ($sq) => $sq->where('code', $this->typeFilter)))
+            ->when($this->typeFilter, fn ($q) => $q->whereHas('documentType', fn ($sq) => $sq->where('CODE', $this->typeFilter)))
             ->when($this->divisionId, fn ($q) => $q->where('CONTR_DIV_ID', $this->divisionId))
             ->orderBy('CONTR_CREATED_DT', 'desc');
 
