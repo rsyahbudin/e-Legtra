@@ -31,6 +31,8 @@ class Department extends Model
     protected function casts(): array
     {
         return [
+            'LGL_ROW_ID' => 'integer',
+            'DIV_ID' => 'integer',
             'CC_EMAILS' => 'array',
             'IS_ACTIVE' => 'boolean',
         ];

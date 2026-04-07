@@ -49,16 +49,16 @@ new class extends Component {
             Department::find($this->editingId)->update([
                 'REF_DEPT_NAME' => $this->ref_dept_name,
                 'REF_DEPT_ID' => $this->ref_dept_id,
-                'email' => $this->email,
-                'cc_emails' => $this->cc_emails,
+                'EMAIL' => $this->email,
+                'CC_EMAILS' => $this->cc_emails,
                 'IS_ACTIVE' => $this->is_active,
             ]);
         } else {
             $this->division->departments()->create([
                 'REF_DEPT_NAME' => $this->ref_dept_name,
                 'REF_DEPT_ID' => $this->ref_dept_id,
-                'email' => $this->email,
-                'cc_emails' => $this->cc_emails,
+                'EMAIL' => $this->email,
+                'CC_EMAILS' => $this->cc_emails,
                 'IS_ACTIVE' => $this->is_active,
             ]);
         }
@@ -73,8 +73,8 @@ new class extends Component {
         $this->editingId = $dept->LGL_ROW_ID;
         $this->ref_dept_name = $dept->REF_DEPT_NAME;
         $this->ref_dept_id = $dept->REF_DEPT_ID;
-        $this->email = $dept->email ?? '';
-        $this->cc_emails = $dept->cc_emails;
+        $this->email = $dept->EMAIL ?? '';
+        $this->cc_emails = $dept->CC_EMAILS;
         $this->is_active = (bool) $dept->IS_ACTIVE;
     }
 
@@ -158,10 +158,10 @@ new class extends Component {
                         <div>
                             <div class="font-medium">
                                 {{ $dept->REF_DEPT_NAME }} 
-                                <span class="text-xs text-neutral-500">({{ $dept->REF_DEPT_ID ?? '-' }}) | {{ $dept->email }}</span>
+                                <span class="text-xs text-neutral-500">({{ $dept->REF_DEPT_ID ?? '-' }}) | {{ $dept->EMAIL }}</span>
                             </div>
-                            @if($dept->cc_emails)
-                            <div class="text-xs text-neutral-500">{{ Str::limit(is_array($dept->cc_emails) ? implode(', ', $dept->cc_emails) : $dept->cc_emails, 50) }}</div>
+                            @if($dept->CC_EMAILS)
+                            <div class="text-xs text-neutral-500">{{ Str::limit(is_array($dept->CC_EMAILS) ? implode(', ', $dept->CC_EMAILS) : $dept->CC_EMAILS, 50) }}</div>
                             @endif
                         </div>
                         @if($dept->IS_ACTIVE)

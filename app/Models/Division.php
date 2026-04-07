@@ -29,6 +29,7 @@ class Division extends Model
     protected function casts(): array
     {
         return [
+            'LGL_ROW_ID' => 'integer',
             'IS_ACTIVE' => 'boolean',
         ];
     }

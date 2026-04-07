@@ -144,13 +144,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                             {{ Str::limit($division->REF_DIV_DESC, 50) ?? '-' }}
                         </td>
                         <!-- <td class="px-6 py-4 text-center">
-                            <flux:badge size="sm" color="zinc">{{ $division->users_count }}</flux:badge>
+                            <flux:badge size="sm" color="zinc">{{ $division->USERS_COUNT }}</flux:badge>
                         </td> -->
                         <td class="px-6 py-4 text-center">
-                            <flux:badge size="sm" color="zinc">{{ $division->tickets_count }}</flux:badge>
+                            <flux:badge size="sm" color="zinc">{{ $division->TICKETS_COUNT }}</flux:badge>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <flux:badge size="sm" color="zinc">{{ $division->contracts_count }}</flux:badge>
+                            <flux:badge size="sm" color="zinc">{{ $division->CONTRACTS_COUNT }}</flux:badge>
                         </td>
                         <td class="px-6 py-4 text-center">
                             @if($division->IS_ACTIVE)
