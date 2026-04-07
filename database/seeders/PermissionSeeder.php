@@ -14,6 +14,7 @@ class PermissionSeeder extends Seeder
             ['PERMISSION_NAME' => 'Lihat Dashboard Ticket Statistics', 'PERMISSION_CODE' => 'dashboard.tickets.view', 'PERMISSION_GROUP' => 'dashboard', 'PERMISSION_DESC' => 'Melihat statistik tiket di dashboard'],
             ['PERMISSION_NAME' => 'Lihat Dashboard Contract Statistics', 'PERMISSION_CODE' => 'dashboard.contracts.view', 'PERMISSION_GROUP' => 'dashboard', 'PERMISSION_DESC' => 'Melihat statistik kontrak di dashboard'],
             ['PERMISSION_NAME' => 'Lihat My Tickets', 'PERMISSION_CODE' => 'dashboard.my-tickets.view', 'PERMISSION_GROUP' => 'dashboard', 'PERMISSION_DESC' => 'Melihat tiket milik pengguna di dashboard'],
+            ['PERMISSION_NAME' => 'Lihat Dashboard Aging', 'PERMISSION_CODE' => 'dashboard.aging.view', 'PERMISSION_GROUP' => 'dashboard', 'PERMISSION_DESC' => 'Melihat data aging di dashboard'],
 
             // Tickets permissions (replacing old contracts.create which is now ticket creation)
             ['PERMISSION_NAME' => 'Lihat Tickets', 'PERMISSION_CODE' => 'tickets.view', 'PERMISSION_GROUP' => 'tickets', 'PERMISSION_DESC' => 'Melihat daftar tickets'],
@@ -32,6 +33,7 @@ class PermissionSeeder extends Seeder
 
             // Users permissions
             ['PERMISSION_NAME' => 'Lihat User', 'PERMISSION_CODE' => 'users.view', 'PERMISSION_GROUP' => 'users', 'PERMISSION_DESC' => 'Melihat daftar pengguna'],
+            ['PERMISSION_NAME' => 'Manage Users', 'PERMISSION_CODE' => 'users.manage', 'PERMISSION_GROUP' => 'users', 'PERMISSION_DESC' => 'Mengelola pengguna (create, edit, delete)'],
             ['PERMISSION_NAME' => 'Buat User', 'PERMISSION_CODE' => 'users.create', 'PERMISSION_GROUP' => 'users', 'PERMISSION_DESC' => 'Membuat pengguna baru'],
             ['PERMISSION_NAME' => 'Edit User', 'PERMISSION_CODE' => 'users.edit', 'PERMISSION_GROUP' => 'users', 'PERMISSION_DESC' => 'Mengedit pengguna'],
             ['PERMISSION_NAME' => 'Hapus User', 'PERMISSION_CODE' => 'users.delete', 'PERMISSION_GROUP' => 'users', 'PERMISSION_DESC' => 'Menghapus pengguna'],

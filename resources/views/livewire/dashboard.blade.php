@@ -255,7 +255,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             </a>
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                            {{ Str::limit($ticket->getAnswer('proposed_document_title'), 40) }}
+                            {{ Str::limit($ticket->TCKT_PROP_DOC_TITLE, 40) }}
                         </td>
                         <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
                             {{ $ticket->document_type_label }}
@@ -357,7 +357,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 </a>
                             </td>
                             <td class="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                {{ Str::limit($ticket->getAnswer('proposed_document_title'), 50) }}
+                                {{ Str::limit($ticket->TCKT_PROP_DOC_TITLE, 50) }}
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php

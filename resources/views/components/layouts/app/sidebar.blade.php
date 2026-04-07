@@ -18,13 +18,20 @@
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
 
-                @if(auth()->user()->hasPermission('tickets.view'))
+                @if(auth()->user()->hasPermission('tickets.view') || auth()->user()->hasPermission('contracts.view'))
                 <flux:navlist.group :heading="__('Ticketing System')" class="grid">
+                    @if(auth()->user()->hasPermission('tickets.view'))
                     <flux:navlist.item icon="ticket" :href="route('tickets.index')" :current="request()->routeIs('tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-text" :href="route('contracts.repository')" :current="request()->routeIs('contracts.repository')" wire:navigate>{{ __('Contracts') }}</flux:navlist.item>
-                    @if(auth()->user()->hasPermission('divisions.view'))
-                    <flux:navlist.item icon="rectangle-group" :href="route('divisions.index')" :current="request()->routeIs('divisions.*')" wire:navigate>{{ __('Divisions') }}</flux:navlist.item>
                     @endif
+                    @if(auth()->user()->hasPermission('contracts.view'))
+                    <flux:navlist.item icon="document-text" :href="route('contracts.repository')" :current="request()->routeIs('contracts.repository')" wire:navigate>{{ __('Contracts') }}</flux:navlist.item>
+                    @endif
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->hasPermission('divisions.view'))
+                <flux:navlist.group :heading="__('Management')" class="grid">
+                    <flux:navlist.item icon="rectangle-group" :href="route('divisions.index')" :current="request()->routeIs('divisions.*')" wire:navigate>{{ __('Divisions') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

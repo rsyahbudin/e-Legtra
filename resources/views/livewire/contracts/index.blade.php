@@ -256,7 +256,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         </td>
                         <td class="px-4 py-3">
                             <div class="max-w-xs">
-                                <p class="truncate font-medium text-neutral-900 dark:text-white">{{ $ticket->getAnswer('proposed_document_title') ?? '-' }}</p>
+                                <p class="truncate font-medium text-neutral-900 dark:text-white">{{ $ticket->TCKT_PROP_DOC_TITLE ?? '-' }}</p>
                                 <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $ticket->documentType->REF_DOC_TYPE_NAME }}</p>
                             </div>
                         </td>

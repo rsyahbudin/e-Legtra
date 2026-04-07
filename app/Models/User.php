@@ -76,6 +76,9 @@ class User extends Authenticatable
     {
         return [
             'USER_PASSWORD' => 'hashed',
+            'USER_ROLE_ID' => 'integer',
+            'DIV_ID' => 'integer',
+            'DEPT_ID' => 'integer',
         ];
     }
 
@@ -183,7 +186,7 @@ class User extends Authenticatable
     public static function getAdminAndLegalUsers()
     {
         return static::whereHas('role', function ($q) {
-            $q->whereIn('ROLE_SLUG', ['super-admin', 'legal']);
+            $q->whereRaw('LOWER("ROLE_SLUG") IN (?, ?)', ['super-admin', 'legal']);
         })->get();
     }
 
@@ -195,7 +198,8 @@ class User extends Authenticatable
         if (is_array($slug)) {
             return $this->hasAnyRole($slug);
         }
-        return $this->role && $this->role->ROLE_SLUG === $slug;
+
+        return $this->role && strtolower($this->role->ROLE_SLUG) === strtolower($slug);
     }
 
     /**
@@ -203,7 +207,28 @@ class User extends Authenticatable
      */
     public function hasAnyRole(array $slugs): bool
     {
-        return $this->role && in_array($this->role->ROLE_SLUG, $slugs);
+        if (! $this->role) {
+            return false;
+        }
+
+        $roleSlug = strtolower($this->role->ROLE_SLUG);
+        $slugs = array_map('strtolower', $slugs);
+
+        return in_array($roleSlug, $slugs);
+    }
+
+    /**
+     * Static cache to store permissions for the current request to avoid multiple queries.
+     * @var array<int, array<string>>
+     */
+    protected static array $permissionsCache = [];
+
+    /**
+     * Clear the permissions cache.
+     */
+    public static function flushPermissionsCache(): void
+    {
+        static::$permissionsCache = [];
     }
 
     /**
@@ -211,16 +236,24 @@ class User extends Authenticatable
      */
     public function hasPermission(string $slug): bool
     {
-        if (! $this->role) {
+        // Safety check for role ID
+        $roleId = $this->USER_ROLE_ID;
+
+        if (! $roleId) {
             return false;
         }
 
-        // Super admin has all permissions
-        if ($this->role->ROLE_SLUG === 'super-admin') {
-            return true;
+        // Initialize cache for this role if not already loaded
+        if (! isset(static::$permissionsCache[$roleId])) {
+            static::$permissionsCache[$roleId] = \Illuminate\Support\Facades\DB::table('LGL_ROLE_PERMISSION')
+                ->join('LGL_PERMISSION', 'LGL_ROLE_PERMISSION.PERMISSION_ID', '=', 'LGL_PERMISSION.LGL_ROW_ID')
+                ->where('LGL_ROLE_PERMISSION.ROLE_ID', $roleId)
+                ->pluck('PERMISSION_CODE')
+                ->map(fn ($code) => strtolower($code))
+                ->toArray();
         }
 
-        return $this->role->hasPermission($slug);
+        return in_array(strtolower($slug), static::$permissionsCache[$roleId]);
     }
 
     /**

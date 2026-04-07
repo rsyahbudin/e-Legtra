@@ -36,6 +36,7 @@ class FormQuestion extends Model
         'QUEST_ACCEPT',
         'QUEST_IS_MULTIPLE',
         'QUEST_IS_REPORTED',
+        'QUEST_IS_EDITABLE',
     ];
 
     protected function casts(): array
@@ -46,6 +47,7 @@ class FormQuestion extends Model
             'QUEST_IS_ACTIVE' => 'boolean',
             'QUEST_IS_MULTIPLE' => 'boolean',
             'QUEST_IS_REPORTED' => 'boolean',
+            'QUEST_IS_EDITABLE' => 'boolean',
         ];
     }
 

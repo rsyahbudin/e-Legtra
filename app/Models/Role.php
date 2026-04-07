@@ -25,11 +25,14 @@ class Role extends Model
         'GUARD_NAME',
         'ROLE_DESCRIPTION',
         'IS_ACTIVE',
+        'REF_ROLE_CREATED_BY',
+        'REF_ROLE_UPDATED_BY',
     ];
 
     protected function casts(): array
     {
         return [
+            'ROLE_ID' => 'integer',
             'IS_ACTIVE' => 'boolean',
         ];
     }
@@ -55,17 +58,7 @@ class Role extends Model
      */
     public function hasPermission(string $slug): bool
     {
-        // Assuming Permission model uses PERMISSION_CODE or slug?
-        // Migration didn't rename 'slug' in Permission?
-        // Permission migration lines 556-588:
-        // `name` -> `PERMISSION_NAME`.
-        // `guard_name` -> `GUARD_NAME`.
-        // No rename for 'slug' or 'code'?
-        // Wait. `Permission.php` had `PERMISSION_CODE`.
-        // If migration didn't rename it, maybe it was already `PERMISSION_CODE`?
-        // Or I missed it.
-        // Assuming `PERMISSION_CODE` exists.
-        return $this->permissions()->where('PERMISSION_CODE', $slug)->exists();
+        return $this->permissions()->whereRaw('LOWER("PERMISSION_CODE") = ?', [strtolower($slug)])->exists();
     }
 
     /**
@@ -74,16 +67,13 @@ class Role extends Model
     public function givePermission(Permission|int|string $permission): void
     {
         if (is_string($permission)) {
-            $permission = Permission::where('PERMISSION_CODE', $permission)->firstOrFail();
+            $permission = Permission::whereRaw('LOWER("PERMISSION_CODE") = ?', [strtolower($permission)])->firstOrFail();
         }
 
         if (is_int($permission)) {
             $permission = Permission::findOrFail($permission);
         }
 
-        // Use PK of Permission (LGL_ROW_ID)
-        // But pivoting uses permission_id column which refers to LGL_ROW_ID?
-        // Yes, likely.
         $this->permissions()->syncWithoutDetaching([$permission->LGL_ROW_ID]);
     }
 
@@ -93,7 +83,7 @@ class Role extends Model
     public function revokePermission(Permission|int|string $permission): void
     {
         if (is_string($permission)) {
-            $permission = Permission::where('PERMISSION_CODE', $permission)->firstOrFail();
+            $permission = Permission::whereRaw('LOWER("PERMISSION_CODE") = ?', [strtolower($permission)])->firstOrFail();
         }
 
         if (is_int($permission)) {
@@ -109,5 +99,13 @@ class Role extends Model
     public function syncPermissions(array $permissionIds): void
     {
         $this->permissions()->sync($permissionIds);
+    }
+
+    /**
+     * Determine if the role is a built-in system role.
+     */
+    public function getIsSystemAttribute(): bool
+    {
+        return in_array(strtolower($this->ROLE_SLUG), ['super-admin', 'legal', 'pic', 'management']);
     }
 }
