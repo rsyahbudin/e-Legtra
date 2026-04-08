@@ -9,11 +9,6 @@ use Livewire\Attributes\Layout;
 new #[Layout('components.layouts.app')] class extends Component {
     use WithFileUploads;
 
-    // Logo
-    public $company_logo = null;
-    public $current_logo = null;
-    public $remove_logo = false;
-
     // Ticket Created
     public $ticket_created_subject = '';
     public $ticket_created_body = '';
@@ -39,9 +34,6 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $service = app(EmailTemplateService::class);
 
-        // Load current logo
-        $this->current_logo = Setting::get('company_logo');
-
         // Load ticket created template
         $ticketCreated = $service->getTicketCreatedTemplate();
         $this->ticket_created_subject = $ticketCreated['subject'];
@@ -65,25 +57,6 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function save(): void
     {
-        // Handle logo upload
-        if ($this->company_logo) {
-            $path = $this->company_logo->store('settings', 'public');
-            Setting::set('company_logo', $path);
-            
-            // Delete old logo if exists
-            if ($this->current_logo && \Storage::disk('public')->exists($this->current_logo)) {
-                \Storage::disk('public')->delete($this->current_logo);
-            }
-        }
-
-        // Handle logo removal
-        if ($this->remove_logo && $this->current_logo) {
-            if (\Storage::disk('public')->exists($this->current_logo)) {
-                \Storage::disk('public')->delete($this->current_logo);
-            }
-            Setting::set('company_logo', null);
-        }
-
         // Save email templates
         Setting::set('ticket_created_email_subject', $this->ticket_created_subject);
         Setting::set('ticket_created_email_body', $this->ticket_created_body);
@@ -135,27 +108,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     </div>
 
     <form wire:submit="save" class="space-y-6">
-        <!-- Logo Settings -->
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Company Logo</h2>
-            
-            @if($current_logo && !$remove_logo)
-                <div class="mb-4">
-                    <p class="mb-2 text-sm text-neutral-600 dark:text-neutral-400">Current Logo:</p>
-                    <img src="{{ asset('storage/' . $current_logo) }}" alt="Company Logo" class="max-w-xs rounded border border-neutral-200 p-2 dark:border-neutral-700">
-                    <flux:button type="button" wire:click="$set('remove_logo', true)" variant="danger" size="sm" class="mt-2">
-                        Remove Logo
-                    </flux:button>
-                </div>
-            @endif
-
-            <flux:field>
-                <flux:label>Upload New Logo</flux:label>
-                <flux:input type="file" wire:model="company_logo" accept="image/*" />
-                <flux:description>Logo will be displayed in emails and can be used throughout the system. Recommended: PNG or JPG, max 200px width.</flux:description>
-                <flux:error name="company_logo" />
-            </flux:field>
-        </div>
 
         <!-- Ticket Created Template -->
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">

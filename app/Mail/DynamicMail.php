@@ -37,8 +37,7 @@ class DynamicMail extends Mailable implements ShouldQueue
      */
     public function content(): Content
     {
-        $logoPath = \App\Models\Setting::get('company_logo');
-        $fullLogoPath = $logoPath ? storage_path('app/public/'.$logoPath) : null;
+        $fullLogoPath = public_path('images/logo.jpeg');
 
         return new Content(
             view: 'emails.dynamic',

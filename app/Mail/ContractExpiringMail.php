@@ -83,8 +83,7 @@ class ContractExpiringMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $logoPath = Setting::get('company_logo');
-        $fullLogoPath = $logoPath ? storage_path('app/public/'.$logoPath) : null;
+        $fullLogoPath = public_path('images/logo.jpeg');
 
         return new Content(
             view: 'emails.contract-expiring',
