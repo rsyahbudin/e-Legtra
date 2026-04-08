@@ -37,6 +37,7 @@ class FormQuestion extends Model
         'QUEST_IS_MULTIPLE',
         'QUEST_IS_REPORTED',
         'QUEST_IS_EDITABLE',
+        'QUEST_FILE_NAME',
     ];
 
     protected function casts(): array

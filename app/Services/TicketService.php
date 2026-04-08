@@ -25,7 +25,7 @@ class TicketService
             throw new \Exception("Division not found for ID: {$divisionId}");
         }
 
-        $divCode = strtoupper(substr($division->CODE ?? 'UNK', 0, 3));
+        $divCode = strtoupper(substr($division->code ?? 'UNK', 0, 3));
 
         $year = now()->format('y');
         $month = now()->format('m');

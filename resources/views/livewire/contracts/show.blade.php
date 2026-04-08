@@ -252,12 +252,12 @@ new #[Layout('components.layouts.app')] class extends Component
             'newLegalFile' => 'required|file|max:20480', // 20MB limit
         ]);
 
-        $filename = $this->newLegalFile->getClientOriginalName();
-        $this->newLegalFile->storeAs("{$this->ticket->TCKT_NO}/legal", $filename, 'legal_docs');
+        $documentService = app(\App\Services\LegalDocumentService::class);
+        $path = $documentService->uploadDocument($this->newLegalFile, $this->ticket->TCKT_NO, 'legal', 'legal');
 
         $this->newLegalFile = null;
         $this->dispatch('notify', message: 'Document uploaded successfully to legal folder.', type: 'success');
-        
+
         $this->mount($this->ticket->LGL_ROW_ID);
     }
 
@@ -380,7 +380,10 @@ new #[Layout('components.layouts.app')] class extends Component
     private function processFinalizationValue(FormQuestion $question, $value): ?string
     {
         if ($question->QUEST_TYPE === 'file' && $value instanceof \Illuminate\Http\UploadedFile) {
-            return $value->store("{$this->ticket->TCKT_NO}/legal", 'legal_docs');
+            $documentService = app(\App\Services\LegalDocumentService::class);
+            $prefix = $question->QUEST_FILE_NAME ?: $question->QUEST_CODE;
+
+            return $documentService->uploadDocument($value, $this->ticket->TCKT_NO, 'legal', $prefix);
         }
 
         return $value;
@@ -557,21 +560,6 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     @endif
 
-    {{-- Shared Folder Information --}}
-    <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-        <h2 class="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Document Storage Location</h2>
-        <div class="flex flex-col gap-2">
-            <p class="text-sm text-neutral-500 dark:text-neutral-400">All documents for this ticket (including Legal approvals) are accessible directly via the following shared network directory:</p>
-            <div class="flex items-center gap-2 max-w-2xl">
-                @php
-                    $baseFolder = env('LEGAL_DOCS_ROOT', '/usr/share/files/legal_attachment/');
-                    $fullPath = rtrim($baseFolder, '/\\') . DIRECTORY_SEPARATOR . 'tickets' . DIRECTORY_SEPARATOR . $ticket->TCKT_NO;
-                @endphp
-                <code class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 select-all">{{ $fullPath }}</code>
-                <flux:button size="sm" variant="ghost" icon="clipboard" onclick="navigator.clipboard.writeText('{{ addslashes($fullPath) }}'); alert('Path copied to clipboard!');" title="Copy path" />
-            </div>
-        </div>
-    </div>
 
 <!-- Uploaded Documents (dynamic from file-type question answers) -->
     @php
@@ -594,7 +582,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     @if($isMultiple)
                         {{-- Multiple files stored as JSON array of paths --}}
                         @php
-                            $rawFiles = json_decode($answer->ANS_VALUE, true) ?? [];
+                            $decoded = json_decode($answer->ANS_VALUE, true);
+                            $rawFiles = is_array($decoded) ? $decoded : [$answer->ANS_VALUE];
                             // Normalize: support both string paths and legacy {name, path} objects
                             $filePaths = collect($rawFiles)->map(fn ($f) => is_array($f) ? ($f['path'] ?? '') : $f)->filter()->values();
                         @endphp

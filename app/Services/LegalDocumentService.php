@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class LegalDocumentService
@@ -38,12 +37,20 @@ class LegalDocumentService
      *
      * @return string The relative storage path of the uploaded file.
      */
-    public function uploadDocument(UploadedFile $file, string $ticketNumber, string $category): string
+    public function uploadDocument(UploadedFile $file, string $ticketNumber, string $category, ?string $customPrefix = null): string
     {
         $this->validateCategory($category);
 
         $directory = $this->buildPath($ticketNumber, $category);
-        $safeFilename = $this->generateSafeFilename($file, $ticketNumber, $category);
+        $safeFilename = $this->generateSafeFilename($file, $ticketNumber, $category, $customPrefix);
+
+        \Illuminate\Support\Facades\Log::info('Storing document', [
+            'ticket' => $ticketNumber,
+            'category' => $category,
+            'directory' => $directory,
+            'safe_filename' => $safeFilename,
+            'disk' => self::DISK,
+        ]);
 
         return $file->storeAs($directory, $safeFilename, self::DISK);
     }
@@ -91,7 +98,9 @@ class LegalDocumentService
      */
     private function buildPath(string $ticketNumber, string $category): string
     {
-        return "{$ticketNumber}/{$category}";
+        $cleanTicket = $this->cleanTicketNumber($ticketNumber);
+
+        return "{$cleanTicket}/{$category}";
     }
 
     /**
@@ -113,18 +122,26 @@ class LegalDocumentService
     /**
      * Generate a structured filename template.
      *
-     * Format: {TCKT_NO}_{category}_{YmdHis}_{uuid8}.{ext}
-     * Example: TIC-FIN-26010001_request_20260302134100_a1b2c3d4.pdf
+     * Format: {TCKT_NO}_{category}.{ext}
+     * Example: TIC-FIN-26010001_request.pdf
      */
-    private function generateSafeFilename(UploadedFile $file, string $ticketNumber, string $category): string
+    private function generateSafeFilename(UploadedFile $file, string $ticketNumber, string $category, ?string $customPrefix = null): string
     {
         $extension = $file->getClientOriginalExtension();
-        $timestamp = now()->format('Ymd_His');
-        $uniqueSuffix = Str::substr(Str::uuid()->toString(), 0, 8);
+        $cleanTicket = $this->cleanTicketNumber($ticketNumber);
 
-        // Sanitise ticket number for filename (replace non-alphanumeric with underscore)
-        $safeTicketNumber = preg_replace('/[^a-zA-Z0-9]/', '_', $ticketNumber);
+        // Use custom prefix if provided, otherwise fallback to category
+        $prefix = $customPrefix ?: $category;
 
-        return "{$safeTicketNumber}_{$category}_{$timestamp}_{$uniqueSuffix}.{$extension}";
+        // Sanitize the prefix for safe filename
+        $safePrefix = preg_replace('/[^a-zA-Z0-9]/', '_', $prefix);
+
+        // Requested format: {TCKT_NO}_{PREFIX}.{EXT}
+        return "{$cleanTicket}_{$safePrefix}.{$extension}";
+    }
+
+    public function cleanTicketNumber(string $ticketNumber): string
+    {
+        return str_replace(['/', '\\'], '-', $ticketNumber);
     }
 }
