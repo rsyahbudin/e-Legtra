@@ -10,36 +10,64 @@ Pastikan server sudah memiliki komponen berikut:
 
 | Komponen          | Versi Minimum | Keterangan                                      |
 |-------------------|---------------|--------------------------------------------------|
-| **PHP**           | 8.2+          | Disarankan PHP 8.4                               |
+| **OS**            | RHEL 8.x      | Rocky Linux 8 / AlmaLinux 8 juga didukung        |
+| **PHP**           | 8.4           | Gunakan Remi Repository                          |
 | **Composer**      | 2.x           | Dependency manager PHP                           |
 | **Node.js**       | 18+           | Untuk build frontend (Vite + Tailwind)           |
-| **npm**           | 9+            | Terinstal bersama Node.js                        |
-| **Oracle Client** | 19c+          | Oracle Instant Client (untuk `oci8` extension)   |
-| **Web Server**    | -             | Nginx (disarankan) atau Apache                   |
+| **Oracle Client** | 19c+          | Oracle Instant Client (RPM)                      |
+| **Web Server**    | -             | Nginx (disarankan)                               |
 | **Supervisor**    | -             | Untuk menjalankan queue worker & scheduler        |
 
-### PHP Extensions yang Diperlukan
+### 1.1 Persiapan Repository & PHP 8.4 (RHEL 8)
 
+```bash
+# Update sistem
+sudo dnf update -y
+
+# Install EPEL & Remi Repository
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+sudo dnf install -y https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+
+# Enable modul PHP 8.4
+sudo dnf module reset php -y
+sudo dnf module enable php:remi-8.4 -y
+
+# Install PHP & Ekstensi
+sudo dnf install -y php-cli php-fpm php-mbstring php-xml php-curl php-zip php-bcmath php-json php-tokenizer php-fileinfo php-pear php-devel
 ```
-php-cli
-php-fpm
-php-mbstring
-php-xml
-php-curl
-php-zip
-php-bcmath
-php-json
-php-tokenizer
-php-fileinfo
-php-oci8          # WAJIB untuk koneksi Oracle
+
+### 1.2 Install Oracle Instant Client & OCI8
+
+1. Download RPM **Basic** dan **Devel** dari Oracle (versi 19c atau 21c).
+2. Install RPM tersebut:
+```bash
+sudo dnf install -y oracle-instantclient19.19-basic-19.19.0.0.0-1.x86_64.rpm
+sudo dnf install -y oracle-instantclient19.19-devel-19.19.0.0.0-1.x86_64.rpm
 ```
 
-> [!IMPORTANT]
-> Extension `php-oci8` adalah **wajib**. Pastikan Oracle Instant Client sudah terinstall dan `oci8.so` sudah di-load di `php.ini`.
+3. Install ekstensi OCI8:
+```bash
+sudo dnf install -y php-pecl-oci8
+```
 
-Untuk memeriksa apakah `oci8` sudah aktif:
+4. Verifikasi:
 ```bash
 php -m | grep oci8
+```
+
+### 1.3 SELinux (Penting di RHEL 8)
+
+Jika SELinux aktif (`Enforcing`), Laravel mungkin gagal menulis ke folder storage. Jalankan:
+
+```bash
+# Izinkan Nginx/Apache menulis ke folder storage & cache
+sudo semanage fcontext -a -t httpd_sys_rw_content_t "/var/www/e-legtra/storage(/.*)?"
+sudo semanage fcontext -a -t httpd_sys_rw_content_t "/var/www/e-legtra/bootstrap/cache(/.*)?"
+sudo restorecon -Rv /var/www/e-legtra
+
+# Izinkan network connection (untuk Oracle & Mail)
+sudo setsebool -P httpd_can_network_connect 1
+sudo setsebool -P httpd_can_network_connect_db 1
 ```
 
 ---
@@ -485,7 +513,13 @@ php artisan config:cache
 
 ---
 
-## Ringkasan Arsitektur
+---
+
+## 13. Catatan Akhir
+
+Deployment manual di RHEL 8 memerlukan ketelitian terutama pada bagian **Oracle Instant Client** dan **SELinux**. Pastikan setiap langkah verifikasi di Bagian 10 dilakukan sebelum aplikasi dibuka untuk user.
+
+Jika di masa depan Anda ingin mengotomatiskan proses ini menggunakan **GitLab CI/CD**, Anda dapat menambahkan file `.gitlab-ci.yml` untuk menangani build dan sinkronisasi file secara otomatis.
 
 ```
 ┌─────────────────────────────────────────────┐
